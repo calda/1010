@@ -11,7 +11,7 @@ import SwiftUI
 struct TenTenApp: App {
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            GameView()
         }
     }
 }
