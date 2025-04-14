@@ -71,14 +71,18 @@ struct PiecesTray: View {
         
         Group {
           if let piece {
-            PieceView(game: game, piece: piece, slot: slot, tileFrames: tileFrames)
+            PieceView(game: game, piece: piece.piece, slot: slot, tileFrames: tileFrames)
+              .frame(maxWidth: .infinity, maxHeight: .infinity)
           } else {
-            Spacer()
+            Color.clear
           }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .aspectRatio(1, contentMode: .fit)
-        .id(piece)
+        // Use a random UUID as the ID for each random piece's view.
+        // This prevents the pieces from before and after generating new pieces
+        // from being considered the same view, and the new piece receiving
+        // animations from the piece that was just placed on the board.
+        .id(piece?.id)
       }
     }
     .padding(.all, 10)
@@ -123,15 +127,17 @@ struct PieceView: View {
     .gesture(dragGesture)
   }
   
+  let defaultScale: Double = 3/5
+  
   private var tileSize: Double {
-    (tileFrames.values.first?.width ?? 10) * 2.0/3.0
+    (tileFrames.values.first?.width ?? 10) * defaultScale
   }
   
   private var scale: Double {
     if dragOffset == .zero {
       1
     } else {
-      3/2
+      1 / defaultScale
     }
   }
   

@@ -17,10 +17,10 @@ final class Game {
     repeating: Array(repeating: .empty, count: 10),
     count: 10)
   
-  private(set) var availablePieces: [Piece?] = [
-    Piece.all.randomElement()!,
-    Piece.all.randomElement()!,
-    Piece.all.randomElement()!,
+  private(set) var availablePieces: [RandomPiece?] = [
+    RandomPiece(),
+    RandomPiece(),
+    RandomPiece(),
   ]
   
   func canAddPiece(_ piece: Piece, at point: Point) -> Bool {
@@ -60,7 +60,7 @@ final class Game {
   // TODO: Write tests
   func addPiece(inSlot slot: Int, at point: Point) {
     guard
-      let piece = availablePieces[slot],
+      let piece = availablePieces[slot]?.piece,
       canAddPiece(piece, at: point)
     else { return }
     
@@ -70,13 +70,23 @@ final class Game {
     
     if availablePieces.allSatisfy({ $0 == nil }) {
       availablePieces = [
-        Piece.all.randomElement()!,
-        Piece.all.randomElement()!,
-        Piece.all.randomElement()!,
+        RandomPiece(),
+        RandomPiece(),
+        RandomPiece(),
       ]
     }
   }
   
+}
+
+struct RandomPiece: Identifiable {
+  let id: UUID
+  let piece: Piece
+  
+  init() {
+    id = UUID()
+    piece = Piece.all.randomElement()!
+  }
 }
 
 struct Piece: Hashable {
