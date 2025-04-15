@@ -47,8 +47,8 @@ struct BoardView: View {
             let point = Point(x: x, y: y)
             let tile = game.tiles[point]
             
-            TileView(color: tile.color)
-              // Measure the frames of the tiles in the global coordinate space
+            TileView(color: tile.color, emptyTileColor: Color(white: 0.9))
+            // Measure the frames of the tiles in the global coordinate space
               .overlay {
                 GeometryReader { proxy in
                   let globalFrame = proxy.frame(in: .global)
@@ -102,15 +102,19 @@ struct PieceView: View {
   let tileFrames: [Point: CGRect]
   @State private var dragOffset = CGSize.zero
   @State private var frame = CGRect.zero
+  @State private var selected = false
+  @State private var fadeOut = false
   
   var body: some View {
-    VStack(spacing: 2) {
+    VStack(spacing: 2 * defaultScale) {
       ForEach(0 ..< piece.height, id: \.self) { y in
-        HStack(spacing: 2) {
+        HStack(spacing: 2 * defaultScale) {
           ForEach(0 ..< piece.width, id: \.self) { x in
             let tile = piece.tiles[Point(x: x, y: y)]
-            TileView(color: tile.isFilled ? tile.color : .clear)
-              .frame(width: tileSize, height: tileSize)
+            TileView(
+              color: tile.isFilled ? tile.color : .clear,
+              scale: defaultScale)
+            .frame(width: tileSize, height: tileSize)
           }
         }
       }
@@ -128,9 +132,12 @@ struct PieceView: View {
     }
     // Enable the drag gesture
     .scaleEffect(scale)
-    .animation(.spring, value: scale)
+    .animation(.spring, value: selected)
+    .animation(.interactiveSpring, value: dragOffset)
     .offset(x: dragOffset.width, y: dragOffset.height)
     .gesture(dragGesture)
+    .opacity(fadeOut ? 0 : 1)
+    .animation(.linear(duration: 0.1), value: fadeOut)
   }
   
   /// The amount to scale down pieces in the tray by, compared to
@@ -142,7 +149,12 @@ struct PieceView: View {
   
   /// The width/height of tiles within the tray
   private var tileSize: Double {
-    (tileFrames.values.first?.width ?? 10) * defaultScale
+    boardTileSize * defaultScale
+  }
+  
+  /// The size of tiles on the game board
+  private var boardTileSize: CGFloat {
+    tileFrames.values.first?.width ?? 10
   }
   
   /// The current scale of this piece. When selected, scale the
@@ -159,6 +171,7 @@ struct PieceView: View {
   private var dragGesture: some Gesture {
     DragGesture()
       .onChanged { value in
+        selected = true
         dragOffset = value.translation
       }
       .onEnded { _ in
@@ -169,22 +182,77 @@ struct PieceView: View {
         }!
         
         let point = targetTile.key
-        game.addPiece(inSlot: slot, at: point)
         
-        dragOffset = .zero
+        guard
+          game.canAddPiece(piece, at: point),
+          // Ensure the piece is reasonably close to the closest tile
+          abs(targetTile.value.origin.distance(to: frame.origin)) < boardTileSize
+        else {
+          dragOffset = .zero
+          selected = false
+          return
+        }
+        
+        // Move the piece to the location on the board
+        let additionalOffsetToNearestTile = CGSize(
+          width: targetTile.value.origin.x - frame.origin.x,
+          height: targetTile.value.origin.y - frame.origin.y)
+        
+        dragOffset = CGSize(
+          width: dragOffset.width + additionalOffsetToNearestTile.width,
+          height: dragOffset.height + additionalOffsetToNearestTile.height)
+        
+        // Once the piece settles at the target tile, commit it to the game board
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+          game.addPiece(piece, at: point)
+          
+          // Since the piece may not precicely align with the tiles on the board,
+          // fade it out rather than having it disappear immediately.
+          fadeOut = true
+          
+          DispatchQueue.main.asyncAfter(deadline: .now() + 0.1, execute: {
+            game.removePiece(inSlot: slot)
+            game.clearFilledRows()
+          })
+        }
       }
   }
 }
 
 struct TileView: View {
-  let color: Color
+  var color: Color?
+  var scale = 1.0
+  var emptyTileColor: Color?
   
   var body: some View {
+    ZStack {
+      if let emptyTileColor {
+        tile(color: emptyTileColor)
+      }
+      
+      if let color {
+        tile(color: color)
+          .transition(.asymmetric(
+            insertion: .identity,
+            removal: .scale(scale: 0).combined(with: .opacity)))
+          // Ensure the filled tile is above the empty tile,
+          // even when the removal animation is playing.
+          .zIndex(10)
+      }
+    }
+    .animation(.spring, value: isFilled)
+  }
+  
+  var isFilled: Bool {
+    color != nil
+  }
+  
+  func tile(color: Color) -> some View {
     Rectangle()
       .fill(color)
       .aspectRatio(1, contentMode: .fit)
       .clipShape(RoundedRectangle(
-        cornerSize: CGSize(width: 5, height: 5),
+        cornerSize: CGSize(width: 5 * scale, height: 5 * scale),
         style: .continuous))
   }
 }

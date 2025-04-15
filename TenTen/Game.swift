@@ -57,15 +57,7 @@ final class Game {
     }
   }
   
-  // TODO: Write tests
-  func addPiece(inSlot slot: Int, at point: Point) {
-    guard
-      let piece = availablePieces[slot]?.piece,
-      canAddPiece(piece, at: point)
-    else { return }
-    
-    addPiece(piece, at: point)
-    
+  func removePiece(inSlot slot: Int) {
     availablePieces[slot] = nil
     
     if availablePieces.allSatisfy({ $0 == nil }) {
@@ -77,9 +69,46 @@ final class Game {
     }
   }
   
+  func clearFilledRows() {
+    // Compute all of the tiles that are eligible to be cleared before we remove any.
+    var tilesToClear = [(point: Point, delay: Double)]()
+    
+    for x in 0...9 {
+      let column = Array(0...9).map { y in Point(x: x, y: y) }
+      let shouldClearColumn = column.allSatisfy { tiles[$0].isFilled }
+      
+      if shouldClearColumn {
+        for point in column {
+          let delay = 0.025 * Double(point.y)
+          tilesToClear.append((point: point, delay: delay))
+        }
+      }
+    }
+    
+    for y in 0...9 {
+      let row = Array(0...9).map { x in Point(x: x, y: y) }
+      let shouldClearRow = row.allSatisfy { tiles[$0].isFilled }
+      
+      if shouldClearRow {
+        for point in row {
+          let delay = 0.025 * Double(point.x)
+          tilesToClear.append((point: point, delay: delay))
+        }
+      }
+    }
+    
+    // Remove the tiles with a staggered delay.
+    // TODO: Have the animation propagate out from the location where the clear was made.
+    for (tileToClear, delay) in tilesToClear {
+      DispatchQueue.main.asyncAfter_syncInUnitTests(deadline: .now() + delay) {
+        self.tiles[tileToClear] = .empty
+      }
+    }
+  }
+  
 }
 
-struct RandomPiece: Identifiable {
+struct RandomPiece: Hashable, Identifiable {
   let id: UUID
   let piece: Piece
   
@@ -158,12 +187,12 @@ extension Tile {
     !isEmpty
   }
   
-  var color: Color {
+  var color: Color? {
     switch self {
     case .filled(let color):
       color
     case .empty:
-      Color(white: 0.9)
+      nil
     }
   }
 }
@@ -231,4 +260,17 @@ extension Piece {
       [1, 0],
       [1, 1],
     ])
+}
+
+extension DispatchQueue {
+  func asyncAfter_syncInUnitTests(
+    deadline: DispatchTime,
+    excute: @escaping () -> Void)
+  {
+    if NSClassFromString("XCTest") != nil {
+      excute()
+    } else {
+      asyncAfter(deadline: deadline, execute: excute)
+    }
+  }
 }
