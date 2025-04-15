@@ -146,6 +146,8 @@
 			);
 			mainGroup = 2E0301922DAC962C00E951FD;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 2E03019C2DAC962C00E951FD /* Products */;
 			projectDirPath = "";
@@ -322,7 +324,6 @@
 				CODE_SIGN_ENTITLEMENTS = TenTen/TenTen.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_ASSET_PATHS = "\"TenTen/Preview Content\"";
 				DEVELOPMENT_TEAM = FZ89A5SZ7C;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
@@ -361,7 +362,6 @@
 				CODE_SIGN_ENTITLEMENTS = TenTen/TenTen.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_ASSET_PATHS = "\"TenTen/Preview Content\"";
 				DEVELOPMENT_TEAM = FZ89A5SZ7C;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;

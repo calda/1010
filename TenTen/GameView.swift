@@ -14,7 +14,13 @@ struct GameView: View {
   
   var body: some View {
     VStack(alignment: .center) {
-      Text("1010")
+      HStack {
+        Image(.logo)
+          .resizable()
+          .scaledToFit()
+          .frame(maxWidth: 150)
+      }
+      .padding(.top, 12)
       
       Spacer()
       
@@ -42,7 +48,7 @@ struct BoardView: View {
             let tile = game.tiles[point]
             
             TileView(color: tile.color)
-            // Measure the frames of the tiles in the global coordinate space
+              // Measure the frames of the tiles in the global coordinate space
               .overlay {
                 GeometryReader { proxy in
                   let globalFrame = proxy.frame(in: .global)
@@ -127,12 +133,21 @@ struct PieceView: View {
     .gesture(dragGesture)
   }
   
+  /// The amount to scale down pieces in the tray by, compared to
+  /// the tiles of the game board board itself.
+  /// Must be small enough for 15 tiles (three 1x5 pieces) can
+  /// fit in the width of the 10 tile board, when accounting for
+  /// the fact that there is also some additional spacing.
   let defaultScale: Double = 3/5
   
+  /// The width/height of tiles within the tray
   private var tileSize: Double {
     (tileFrames.values.first?.width ?? 10) * defaultScale
   }
   
+  /// The current scale of this piece. When selected, scale the
+  /// piece up by the inverse of `defaultScale` so the piece's
+  /// tiles are the same size as the board tiles.
   private var scale: Double {
     if dragOffset == .zero {
       1
@@ -178,8 +193,4 @@ extension CGPoint {
   func distance(to point: CGPoint) -> CGFloat {
     return sqrt(pow((point.x - x), 2) + pow((point.y - y), 2))
   }
-}
-
-#Preview {
-  GameView()
 }
