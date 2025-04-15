@@ -147,6 +147,7 @@
 			mainGroup = 2E0301922DAC962C00E951FD;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
+				2E5BEF232DAE979900D77807 /* XCRemoteSwiftPackageReference "swift" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 2E03019C2DAC962C00E951FD /* Products */;
@@ -469,6 +470,17 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		2E5BEF232DAE979900D77807 /* XCRemoteSwiftPackageReference "swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/airbnb/swift";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.0.8;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
 	};
 	rootObject = 2E0301932DAC962C00E951FD /* Project object */;
 }

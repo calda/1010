@@ -9,9 +9,9 @@ import SwiftUI
 
 @main
 struct TenTenApp: App {
-    var body: some Scene {
-        WindowGroup {
-            GameView()
-        }
+  var body: some Scene {
+    WindowGroup {
+      GameView()
     }
+  }
 }
