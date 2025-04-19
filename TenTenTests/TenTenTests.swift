@@ -69,7 +69,7 @@ struct TenTenTests {
     #expect(game.availablePieces[0] == nil)
     #expect(game.availablePieces[1] != nil)
     #expect(game.availablePieces[2] != nil)
-    
+
     expectedScore += initialPieces[0]?.piece.points ?? 0
     #expect(game.score == expectedScore)
 
@@ -77,7 +77,7 @@ struct TenTenTests {
     #expect(game.availablePieces[0] == nil)
     #expect(game.availablePieces[1] == nil)
     #expect(game.availablePieces[2] != nil)
-    
+
     expectedScore += initialPieces[1]?.piece.points ?? 0
     #expect(game.score == expectedScore)
 
@@ -88,7 +88,7 @@ struct TenTenTests {
 
     expectedScore += initialPieces[2]?.piece.points ?? 0
     #expect(game.score == expectedScore)
-    
+
     #expect(game.availablePieces != initialPieces)
   }
 
@@ -106,8 +106,38 @@ struct TenTenTests {
     game.addPiece(.oneByOne, at: Point(x: 9, y: 2))
     #expect(game.tiles.flatMap(\.self).count(where: \.isFilled) == 51)
 
-    game.clearFilledRows()
+    game.clearFilledRows(placedPiece: .threeByThree, placedLocation: Point(x: 0, y: 0))
     #expect(game.tiles.flatMap(\.self).count(where: \.isFilled) == 0)
+  }
+
+  @Test
+  func clearDelayCascadesFromPlacedPiece() {
+    let game = Game()
+    let clearDelay = { (point: Point) in
+      game.clearDelay(for: point, placedPiece: .twoByTwo, placedLocation: Point(x: 5, y: 5))
+    }
+
+    #expect(clearDelay(Point(x: 0, y: 6)).approximatelyEquals(0.125))
+    #expect(clearDelay(Point(x: 1, y: 6)).approximatelyEquals(0.1))
+    #expect(clearDelay(Point(x: 2, y: 6)).approximatelyEquals(0.075))
+    #expect(clearDelay(Point(x: 3, y: 6)).approximatelyEquals(0.05))
+    #expect(clearDelay(Point(x: 4, y: 6)).approximatelyEquals(0.025))
+    #expect(clearDelay(Point(x: 5, y: 6)).approximatelyEquals(0))
+    #expect(clearDelay(Point(x: 6, y: 6)).approximatelyEquals(0))
+    #expect(clearDelay(Point(x: 7, y: 6)).approximatelyEquals(0.025))
+    #expect(clearDelay(Point(x: 8, y: 6)).approximatelyEquals(0.05))
+    #expect(clearDelay(Point(x: 9, y: 6)).approximatelyEquals(0.075))
+
+    #expect(clearDelay(Point(x: 5, y: 0)).approximatelyEquals(0.125))
+    #expect(clearDelay(Point(x: 5, y: 1)).approximatelyEquals(0.1))
+    #expect(clearDelay(Point(x: 5, y: 2)).approximatelyEquals(0.075))
+    #expect(clearDelay(Point(x: 5, y: 3)).approximatelyEquals(0.05))
+    #expect(clearDelay(Point(x: 5, y: 4)).approximatelyEquals(0.025))
+    #expect(clearDelay(Point(x: 5, y: 5)).approximatelyEquals(0))
+    #expect(clearDelay(Point(x: 5, y: 6)).approximatelyEquals(0))
+    #expect(clearDelay(Point(x: 5, y: 7)).approximatelyEquals(0.025))
+    #expect(clearDelay(Point(x: 5, y: 8)).approximatelyEquals(0.05))
+    #expect(clearDelay(Point(x: 5, y: 9)).approximatelyEquals(0.075))
   }
 
 }
@@ -119,5 +149,11 @@ extension [[Tile]] {
         tile.isEmpty ? 0 : 1
       }
     }
+  }
+}
+
+extension FloatingPoint {
+  public func approximatelyEquals(_ other: Self, within delta: Self = .ulpOfOne) -> Bool {
+    abs(self - other) < delta
   }
 }

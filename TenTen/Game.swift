@@ -18,7 +18,7 @@ final class Game {
   init() { }
 
   // MARK: Internal
-  
+
   /// The number of points scored so far in this game. You score
   /// one point for every tile placed on the board.
   private(set) var score = 0
@@ -81,14 +81,14 @@ final class Game {
 
       placedPiece = nil
       addPiece(piece, at: point)
-      clearFilledRows()
+      clearFilledRows(placedPiece: piece, placedLocation: point)
     }
   }
 
   /// Adds the piece to the given tile on the board
   func addPiece(_ piece: Piece, at point: Point) {
     guard canAddPiece(piece, at: point) else { return }
-    
+
     for x in 0..<piece.width {
       for y in 0..<piece.height {
         let pieceTile = piece.tiles[Point(x: x, y: y)]
@@ -115,7 +115,7 @@ final class Game {
   }
 
   /// Clears any row or column of the board that is fully filled with pieces
-  func clearFilledRows() {
+  func clearFilledRows(placedPiece: Piece, placedLocation: Point) {
     // Compute all of the tiles that are eligible to be cleared before we remove any.
     var tilesToClear = [(point: Point, delay: Double)]()
 
@@ -125,7 +125,7 @@ final class Game {
 
       if shouldClearColumn {
         for point in column {
-          let delay = 0.025 * Double(point.y)
+          let delay = clearDelay(for: point, placedPiece: placedPiece, placedLocation: placedLocation)
           tilesToClear.append((point: point, delay: delay))
         }
       }
@@ -137,19 +137,30 @@ final class Game {
 
       if shouldClearRow {
         for point in row {
-          let delay = 0.025 * Double(point.x)
+          let delay = clearDelay(for: point, placedPiece: placedPiece, placedLocation: placedLocation)
           tilesToClear.append((point: point, delay: delay))
         }
       }
     }
 
-    // Remove the tiles with a staggered delay.
-    // TODO: Have the animation propagate out from the location where the clear was made.
+    // Remove the tiles with a staggered delay from the clear point
     for (tileToClear, delay) in tilesToClear {
       DispatchQueue.main.asyncAfter_syncInUnitTests(deadline: .now() + delay) {
         self.tiles[tileToClear] = .empty
       }
     }
+  }
+
+  /// The delay for removing a piece from the board after clearing a row.
+  /// Radiates outwards from the placed piece.
+  func clearDelay(for tile: Point, placedPiece: Piece, placedLocation: Point) -> Double {
+    // The tiles on the board that are filled in the placed piece
+    let tilesInPiece = placedPiece.tiles.allPoints
+      .filter { placedPiece.tiles[$0].isFilled }
+      .map { Point(x: placedLocation.x + $0.x, y: placedLocation.y + $0.y) }
+
+    let distanceToClosestPointInPiece = tilesInPiece.map { tile.distance(to: $0) }.min()
+    return (distanceToClosestPointInPiece ?? 0) * 0.025
   }
 
 }
@@ -192,6 +203,22 @@ struct Point: Hashable {
 }
 
 extension [[Tile]] {
+  var allPoints: [Point] {
+    (0 ..< width).flatMap { x in
+      (0 ..< height).map { y in
+        Point(x: x, y: y)
+      }
+    }
+  }
+
+  var width: Int {
+    self[0].count
+  }
+
+  var height: Int {
+    count
+  }
+
   subscript(point: Point) -> Tile {
     get {
       self[point.y][point.x]
@@ -200,6 +227,7 @@ extension [[Tile]] {
       self[point.y][point.x] = newValue
     }
   }
+
 }
 
 extension Piece {
@@ -220,23 +248,23 @@ extension Piece {
 
   // MARK: Internal
 
-  var width: Int {
-    tiles[0].count
+  var height: Int {
+    tiles.height
   }
 
-  var height: Int {
-    tiles.count
+  var width: Int {
+    tiles.width
   }
-  
+
   var points: Int {
     var points = 0
-    
+
     for tile in tiles.flatMap({ $0 }) {
       if tile.isFilled {
         points += 1
       }
     }
-    
+
     return points
   }
 }
@@ -340,5 +368,17 @@ extension DispatchQueue {
     } else {
       asyncAfter(deadline: deadline, execute: excute)
     }
+  }
+}
+
+extension CGPoint {
+  func distance(to point: CGPoint) -> CGFloat {
+    sqrt(pow(point.x - x, 2) + pow(point.y - y, 2))
+  }
+}
+
+extension Point {
+  func distance(to point: Point) -> CGFloat {
+    CGPoint(x: x, y: y).distance(to: CGPoint(x: point.x, y: point.y))
   }
 }

@@ -46,12 +46,14 @@ extension EnvironmentValues {
 }
 
 struct TopControls: View {
-  
+
+  // MARK: Internal
+
   var body: some View {
     HStack {
       Spacer()
         .frame(maxWidth: .infinity)
-      
+
       ZStack {
         Image(.logo)
           .resizable()
@@ -59,7 +61,7 @@ struct TopControls: View {
           .frame(maxWidth: 150)
       }
       .frame(maxWidth: .infinity)
-      
+
       ZStack {
         Text("\(game.score)")
           .foregroundStyle(Color(white: 0.4))
@@ -80,13 +82,10 @@ struct TopControls: View {
       .frame(maxWidth: .infinity)
     }
   }
-  
-  @Environment(\.game) private var game
-  @State private var scoreScaled = false
-  
+
   var scoreScale: Double {
     guard scoreScaled else { return 1 }
-    
+
     switch scoreNumberOfDigits {
     case ...4:
       return 1.05
@@ -98,24 +97,29 @@ struct TopControls: View {
       return 1
     }
   }
-  
+
+  // MARK: Private
+
+  @Environment(\.game) private var game
+  @State private var scoreScaled = false
+
   private var fontSize: Double {
     switch scoreNumberOfDigits {
     case ...4:
-      return 24
+      24
     case 5...6:
-      return 22
+      22
     case 7...:
-      return 20
+      20
     default:
-      return 24
+      24
     }
   }
-  
+
   private var scoreNumberOfDigits: Int {
     String(abs(game.score)).count
   }
-  
+
 }
 
 // MARK: - BoardView
@@ -365,12 +369,6 @@ struct TileView: View {
       .clipShape(RoundedRectangle(
         cornerSize: CGSize(width: 5 * scale, height: 5 * scale),
         style: .continuous))
-  }
-}
-
-extension CGPoint {
-  func distance(to point: CGPoint) -> CGFloat {
-    sqrt(pow(point.x - x, 2) + pow(point.y - y, 2))
   }
 }
 
