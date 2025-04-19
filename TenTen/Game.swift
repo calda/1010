@@ -18,6 +18,10 @@ final class Game {
   init() { }
 
   // MARK: Internal
+  
+  /// The number of points scored so far in this game. You score
+  /// one point for every tile placed on the board.
+  private(set) var score = 0
 
   /// A 10x10 grid of tiles that start empty and are filled by the randomly generated pieces
   private(set) var tiles: [[Tile]] = Array(
@@ -67,6 +71,7 @@ final class Game {
   func addPiece(inSlot slot: Int, at point: Point) {
     guard let piece = availablePieces[slot]?.piece else { return }
 
+    score += piece.points
     placedPiece = (piece: piece, targetTile: point)
 
     DispatchQueue.main.asyncAfter_syncInUnitTests(deadline: .now() + 0.2) { [self] in
@@ -83,7 +88,7 @@ final class Game {
   /// Adds the piece to the given tile on the board
   func addPiece(_ piece: Piece, at point: Point) {
     guard canAddPiece(piece, at: point) else { return }
-
+    
     for x in 0..<piece.width {
       for y in 0..<piece.height {
         let pieceTile = piece.tiles[Point(x: x, y: y)]
@@ -221,6 +226,18 @@ extension Piece {
 
   var height: Int {
     tiles.count
+  }
+  
+  var points: Int {
+    var points = 0
+    
+    for tile in tiles.flatMap({ $0 }) {
+      if tile.isFilled {
+        points += 1
+      }
+    }
+    
+    return points
   }
 }
 

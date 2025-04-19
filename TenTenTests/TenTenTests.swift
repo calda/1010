@@ -60,25 +60,35 @@ struct TenTenTests {
   func reloadsSlotsAfterPlacingPieces() {
     let game = Game()
     let initialPieces = game.availablePieces
+    var expectedScore = 0
     #expect(game.availablePieces[0] != nil)
     #expect(game.availablePieces[1] != nil)
     #expect(game.availablePieces[2] != nil)
 
-    game.removePiece(inSlot: 0)
+    game.addPiece(inSlot: 0, at: Point(x: 0, y: 0))
     #expect(game.availablePieces[0] == nil)
     #expect(game.availablePieces[1] != nil)
     #expect(game.availablePieces[2] != nil)
+    
+    expectedScore += initialPieces[0]?.piece.points ?? 0
+    #expect(game.score == expectedScore)
 
-    game.removePiece(inSlot: 1)
+    game.addPiece(inSlot: 1, at: Point(x: 4, y: 4))
     #expect(game.availablePieces[0] == nil)
     #expect(game.availablePieces[1] == nil)
     #expect(game.availablePieces[2] != nil)
+    
+    expectedScore += initialPieces[1]?.piece.points ?? 0
+    #expect(game.score == expectedScore)
 
-    game.removePiece(inSlot: 2)
+    game.addPiece(inSlot: 2, at: Point(x: 7, y: 7))
     #expect(game.availablePieces[0] != nil)
     #expect(game.availablePieces[1] != nil)
     #expect(game.availablePieces[2] != nil)
 
+    expectedScore += initialPieces[2]?.piece.points ?? 0
+    #expect(game.score == expectedScore)
+    
     #expect(game.availablePieces != initialPieces)
   }
 

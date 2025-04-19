@@ -15,13 +15,8 @@ struct GameView: View {
 
   var body: some View {
     VStack(alignment: .center) {
-      HStack {
-        Image(.logo)
-          .resizable()
-          .scaledToFit()
-          .frame(maxWidth: 150)
-      }
-      .padding(.top, 12)
+      TopControls()
+        .padding(.all, 10)
 
       Spacer()
 
@@ -48,6 +43,79 @@ struct GameView: View {
 extension EnvironmentValues {
   @Entry var game = Game()
   @Entry var placedPieceNamespace: () -> Namespace.ID = { fatalError() }
+}
+
+struct TopControls: View {
+  
+  var body: some View {
+    HStack {
+      Spacer()
+        .frame(maxWidth: .infinity)
+      
+      ZStack {
+        Image(.logo)
+          .resizable()
+          .scaledToFit()
+          .frame(maxWidth: 150)
+      }
+      .frame(maxWidth: .infinity)
+      
+      ZStack {
+        Text("\(game.score)")
+          .foregroundStyle(Color(white: 0.4))
+          .font(.system(size: fontSize, weight: .semibold, design: .rounded))
+          .scaleEffect(scoreScale)
+          .monospacedDigit()
+          .onChange(of: game.score) { _, _ in
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.4)) {
+              scoreScaled = true
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+              withAnimation(.spring()) {
+                scoreScaled = false
+              }
+            }
+          }
+      }
+      .frame(maxWidth: .infinity)
+    }
+  }
+  
+  @Environment(\.game) private var game
+  @State private var scoreScaled = false
+  
+  var scoreScale: Double {
+    guard scoreScaled else { return 1 }
+    
+    switch scoreNumberOfDigits {
+    case ...4:
+      return 1.05
+    case 5...6:
+      return 1.04
+    case 7...:
+      return 1.03
+    default:
+      return 1
+    }
+  }
+  
+  private var fontSize: Double {
+    switch scoreNumberOfDigits {
+    case ...4:
+      return 24
+    case 5...6:
+      return 22
+    case 7...:
+      return 20
+    default:
+      return 24
+    }
+  }
+  
+  private var scoreNumberOfDigits: Int {
+    String(abs(game.score)).count
+  }
+  
 }
 
 // MARK: - BoardView
