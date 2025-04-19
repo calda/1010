@@ -19,16 +19,30 @@ final class Game {
 
   // MARK: Internal
 
+  /// A 10x10 grid of tiles that start empty and are filled by the randomly generated pieces
   private(set) var tiles: [[Tile]] = Array(
     repeating: Array(repeating: .empty, count: 10),
     count: 10)
 
+  /// Three slots of randomly generated pieces that can be dragged to the board
   private(set) var availablePieces: [RandomPiece?] = [
     RandomPiece(),
     RandomPiece(),
     RandomPiece(),
   ]
 
+  /// The frame of each individual tile within the global coordinate space
+  var tileFrames: [Point: CGRect] = [:]
+
+  /// The piece that has just been selected and placed on the board
+  private(set) var placedPiece: (piece: Piece, targetTile: Point)? = (piece: .twoByTwo, targetTile: .init(x: 1, y: 1))
+
+  /// The size of tiles on the game board
+  var boardTileSize: CGFloat {
+    tileFrames.values.first?.width ?? 10
+  }
+
+  /// Whether or not it's possible to add the given piece to the given tile on the board
   func canAddPiece(_ piece: Piece, at point: Point) -> Bool {
     guard
       (point.x + piece.width) <= 10,
@@ -49,6 +63,24 @@ final class Game {
     return true
   }
 
+  /// Adds the piece in the given slot to the board at the given point
+  func addPiece(inSlot slot: Int, at point: Point) {
+    guard let piece = availablePieces[slot]?.piece else { return }
+
+    placedPiece = (piece: piece, targetTile: point)
+
+    DispatchQueue.main.asyncAfter_syncInUnitTests(deadline: .now() + 0.2) { [self] in
+      withAnimation(nil) {
+        self.removePiece(inSlot: slot)
+      }
+
+      placedPiece = nil
+      addPiece(piece, at: point)
+      clearFilledRows()
+    }
+  }
+
+  /// Adds the piece to the given tile on the board
   func addPiece(_ piece: Piece, at point: Point) {
     guard canAddPiece(piece, at: point) else { return }
 
@@ -63,6 +95,8 @@ final class Game {
     }
   }
 
+  /// Removes the piece that is currently available in the given slot,
+  /// and refills the slots with new random pieces if necessary.
   func removePiece(inSlot slot: Int) {
     availablePieces[slot] = nil
 
@@ -75,6 +109,7 @@ final class Game {
     }
   }
 
+  /// Clears any row or column of the board that is fully filled with pieces
   func clearFilledRows() {
     // Compute all of the tiles that are eligible to be cleared before we remove any.
     var tilesToClear = [(point: Point, delay: Double)]()
@@ -146,9 +181,6 @@ struct Point: Hashable {
   var y: Int
 
   init(x: Int, y: Int) {
-    assert((0...9).contains(x))
-    assert((0...9).contains(y))
-
     self.x = x
     self.y = y
   }

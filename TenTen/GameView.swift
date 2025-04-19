@@ -10,9 +10,8 @@ import SwiftUI
 // MARK: - GameView
 
 struct GameView: View {
-  let game = Game()
-  @State var tileFrames = [Point: CGRect]()
-  @State var selectedPiece: Int?
+
+  // MARK: Internal
 
   var body: some View {
     VStack(alignment: .center) {
@@ -26,24 +25,54 @@ struct GameView: View {
 
       Spacer()
 
-      BoardView(game: game, tileFrames: $tileFrames)
+      BoardView()
         .padding(.all, 10)
 
       Spacer()
 
-      PiecesTray(game: game, tileFrames: tileFrames)
+      PiecesTray()
         .padding(.bottom, 20)
     }
+    .environment(\.game, game)
+    .environment(\.placedPieceNamespace) { placedPiece }
+    .animation(.interactiveSpring(), value: game.placedPiece?.piece)
   }
+
+  // MARK: Private
+
+  private let game = Game()
+  @Namespace private var placedPiece
+
+}
+
+extension EnvironmentValues {
+  @Entry var game = Game()
+  @Entry var placedPieceNamespace: () -> Namespace.ID = { fatalError() }
 }
 
 // MARK: - BoardView
 
 struct BoardView: View {
-  let game: Game
-  @Binding var tileFrames: [Point: CGRect]
+
+  // MARK: Internal
 
   var body: some View {
+    ZStack(alignment: .topLeading) {
+      board
+      placedPiece
+    }
+    .onGeometryChange(in: .global) { boardFrame in
+      boardGlobalOrigin = boardFrame.origin
+    }
+  }
+
+  // MARK: Private
+
+  @State private var boardGlobalOrigin = CGPoint.zero
+  @Environment(\.game) private var game
+  @Environment(\.placedPieceNamespace) private var placedPieceNamespace
+
+  private var board: some View {
     VStack(spacing: 2) {
       ForEach(0 ..< 10) { y in
         HStack(spacing: 2) {
@@ -51,21 +80,35 @@ struct BoardView: View {
             let point = Point(x: x, y: y)
             let tile = game.tiles[point]
 
-            TileView(color: tile.color, emptyTileColor: Color(white: 0.9))
-              // Measure the frames of the tiles in the global coordinate space
-              .overlay {
-                GeometryReader { proxy in
-                  let globalFrame = proxy.frame(in: .global)
-
-                  Color.clear
-                    .onChange(of: globalFrame, initial: true) { _, tileFrame in
-                      tileFrames[point] = tileFrame
-                    }
+            ZStack {
+              TileView(
+                color: tile.color,
+                emptyTileColor: Color(white: 0.9))
+                // Measure the frames of the tiles in the global coordinate space
+                .onGeometryChange(in: .global) { tileFrame in
+                  game.tileFrames[point] = tileFrame
                 }
-              }
+            }
           }
         }
       }
+    }
+  }
+
+  @ViewBuilder
+  private var placedPiece: some View {
+    if
+      let placedPiece = game.placedPiece,
+      let globalOrigin = game.tileFrames[placedPiece.targetTile]
+    {
+      let offsetInBoard = CGSize(
+        width: globalOrigin.origin.x - boardGlobalOrigin.x,
+        height: globalOrigin.origin.y - boardGlobalOrigin.y)
+
+      PieceView(piece: placedPiece.piece, tileSize: game.boardTileSize, scale: 1)
+        .opacity(0) // This piece is only a destination anchor for the dragged piece
+        .matchedGeometryEffect(id: "placed piece", in: placedPieceNamespace(), anchor: .topLeading)
+        .offset(offsetInBoard)
     }
   }
 }
@@ -73,79 +116,72 @@ struct BoardView: View {
 // MARK: - PiecesTray
 
 struct PiecesTray: View {
-  let game: Game
-  let tileFrames: [Point: CGRect]
+
+  // MARK: Internal
 
   var body: some View {
     HStack {
       ForEach(0..<3) { slot in
-        let piece = game.availablePieces[slot]
-
-        Group {
-          if let piece {
-            PieceView(game: game, piece: piece.piece, slot: slot, tileFrames: tileFrames)
-              .frame(maxWidth: .infinity, maxHeight: .infinity)
-          } else {
-            Color.clear
-          }
-        }
-        .aspectRatio(1, contentMode: .fit)
-        // Use a random UUID as the ID for each random piece's view.
-        // This prevents the pieces from before and after generating new pieces
-        // from being considered the same view, and the new piece receiving
-        // animations from the piece that was just placed on the board.
-        .id(piece?.id)
+        piece(inSlot: slot)
       }
     }
     .padding(.all, 10)
+  }
+
+  // MARK: Private
+
+  @Environment(\.game) private var game
+
+  private func piece(inSlot slot: Int) -> some View {
+    Group {
+      if let piece = game.availablePieces[slot] {
+        DraggablePieceView(piece: piece.piece, slot: slot)
+          .frame(maxWidth: .infinity, maxHeight: .infinity)
+      } else {
+        Color.clear
+      }
+    }
+    .aspectRatio(1, contentMode: .fit)
+    // Use a random UUID as the ID for each random piece's view.
+    // This prevents the pieces from before and after generating new pieces
+    // from being considered the same view, and the new piece receiving
+    // animations from the piece that was just placed on the board.
+    .id(game.availablePieces[slot]?.id)
   }
 }
 
 // MARK: - PieceView
 
-struct PieceView: View {
-  let game: Game
+struct DraggablePieceView: View {
   let piece: Piece
   let slot: Int
-  let tileFrames: [Point: CGRect]
+  @Environment(\.game) private var game
+  @Environment(\.placedPieceNamespace) private var placedPieceNamespace
   @State private var dragOffset = CGSize.zero
   @State private var frame = CGRect.zero
   @State private var selected = false
-  @State private var fadeOut = false
+  @State private var placed = false
 
   var body: some View {
-    VStack(spacing: 2 * defaultScale) {
-      ForEach(0 ..< piece.height, id: \.self) { y in
-        HStack(spacing: 2 * defaultScale) {
-          ForEach(0 ..< piece.width, id: \.self) { x in
-            let tile = piece.tiles[Point(x: x, y: y)]
-            TileView(
-              color: tile.isFilled ? tile.color : .clear,
-              scale: defaultScale)
-              .frame(width: tileSize, height: tileSize)
-          }
-        }
+    PieceView(
+      piece: piece,
+      tileSize: game.boardTileSize * defaultScale,
+      scale: defaultScale)
+      .matchedGeometryEffect(
+        id: placed && game.placedPiece?.piece == piece ? "placed piece" : "\(slot)",
+        in: placedPieceNamespace(),
+        anchor: .topLeading,
+        isSource: false)
+      // Track the view's frame in the global coordinate space
+      .onGeometryChange(in: .global) { frame in
+        self.frame = frame
       }
-    }
-    // Track the view's frame in the global coordinate space
-    .overlay {
-      GeometryReader { proxy in
-        let globalFrame = proxy.frame(in: .global)
-
-        Color.clear
-          .onChange(of: globalFrame, initial: true) { _, frame in
-            self.frame = frame
-          }
-      }
-    }
-    // Enable the drag gesture
-    .scaleEffect(scale)
-    .animation(.spring, value: selected)
-    .animation(.interactiveSpring, value: dragOffset)
-    .offset(x: dragOffset.width, y: dragOffset.height)
-    .gesture(dragGesture)
-    .opacity(fadeOut ? 0 : 1)
-    .animation(.linear(duration: 0.1), value: fadeOut)
+      // Enable the drag gesture
+      .scaleEffect(scale)
+      .animation(.spring, value: selected)
+      .animation(.interactiveSpring, value: dragOffset)
+      .offset(x: dragOffset.width, y: dragOffset.height)
+      .gesture(dragGesture)
   }
 
   /// The amount to scale down pieces in the tray by, compared to
@@ -155,24 +191,14 @@ struct PieceView: View {
   /// the fact that there is also some additional spacing.
   let defaultScale: Double = 3 / 5
 
-  /// The width/height of tiles within the tray
-  private var tileSize: Double {
-    boardTileSize * defaultScale
-  }
-
-  /// The size of tiles on the game board
-  private var boardTileSize: CGFloat {
-    tileFrames.values.first?.width ?? 10
-  }
-
   /// The current scale of this piece. When selected, scale the
   /// piece up by the inverse of `defaultScale` so the piece's
   /// tiles are the same size as the board tiles.
   private var scale: Double {
-    if dragOffset == .zero {
-      1
-    } else {
+    if selected {
       1 / defaultScale
+    } else {
+      1
     }
   }
 
@@ -183,47 +209,54 @@ struct PieceView: View {
         dragOffset = value.translation
       }
       .onEnded { _ in
-        let targetTile = tileFrames.min { lhs, rhs in
-          let lhsScreenPoint = lhs.value.origin
-          let rhsScreenPoint = rhs.value.origin
-          return lhsScreenPoint.distance(to: frame.origin) < rhsScreenPoint.distance(to: frame.origin)
-        }!
-
-        let point = targetTile.key
+        let targetTile = game.tileFrames
+          // Only consider tiles where the piece can be played.
+          // This allows drags to be less precise as long as the target is still unambiguous
+          .filter { tile in
+            game.canAddPiece(piece, at: tile.key)
+              // Ensure the piece is reasonably close to this tile
+              && abs(tile.value.origin.distance(to: frame.origin)) < game.boardTileSize
+          }
+          .min { lhs, rhs in
+            let lhsScreenPoint = lhs.value.origin
+            let rhsScreenPoint = rhs.value.origin
+            return lhsScreenPoint.distance(to: frame.origin) < rhsScreenPoint.distance(to: frame.origin)
+          }
 
         guard
-          game.canAddPiece(piece, at: point),
-          // Ensure the piece is reasonably close to the closest tile
-          abs(targetTile.value.origin.distance(to: frame.origin)) < boardTileSize
+          let point = targetTile?.key,
+          game.canAddPiece(piece, at: point)
         else {
           dragOffset = .zero
           selected = false
           return
         }
 
-        // Move the piece to the location on the board
-        let additionalOffsetToNearestTile = CGSize(
-          width: targetTile.value.origin.x - frame.origin.x,
-          height: targetTile.value.origin.y - frame.origin.y)
+        placed = true
+        game.addPiece(inSlot: slot, at: point)
+      }
+  }
+}
 
-        dragOffset = CGSize(
-          width: dragOffset.width + additionalOffsetToNearestTile.width,
-          height: dragOffset.height + additionalOffsetToNearestTile.height)
+struct PieceView: View {
+  let piece: Piece
+  let tileSize: CGFloat
+  let scale: CGFloat
 
-        // Once the piece settles at the target tile, commit it to the game board
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-          game.addPiece(piece, at: point)
-
-          // Since the piece may not precicely align with the tiles on the board,
-          // fade it out rather than having it disappear immediately.
-          fadeOut = true
-
-          DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-            game.removePiece(inSlot: slot)
-            game.clearFilledRows()
+  var body: some View {
+    VStack(spacing: 2 * scale) {
+      ForEach(0 ..< piece.height, id: \.self) { y in
+        HStack(spacing: 2 * scale) {
+          ForEach(0 ..< piece.width, id: \.self) { x in
+            let tile = piece.tiles[Point(x: x, y: y)]
+            TileView(
+              color: tile.isFilled ? tile.color : .clear,
+              scale: scale)
+              .frame(width: tileSize, height: tileSize)
           }
         }
       }
+    }
   }
 }
 
@@ -270,5 +303,22 @@ struct TileView: View {
 extension CGPoint {
   func distance(to point: CGPoint) -> CGFloat {
     sqrt(pow(point.x - x, 2) + pow(point.y - y, 2))
+  }
+}
+
+extension View {
+  func onGeometryChange(
+    in coordinateSpace: CoordinateSpaceProtocol,
+    _ handle: @escaping (CGRect) -> Void)
+    -> some View
+  {
+    overlay {
+      GeometryReader { proxy in
+        let frame = proxy.frame(in: coordinateSpace)
+        Color.clear.onChange(of: frame, initial: true) { _, newValue in
+          handle(newValue)
+        }
+      }
+    }
   }
 }
