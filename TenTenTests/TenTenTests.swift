@@ -140,6 +140,36 @@ struct TenTenTests {
     #expect(clearDelay(Point(x: 5, y: 9)).approximatelyEquals(0.075))
   }
 
+  @Test
+  func noPlayableMove() {
+    let game = Game()
+
+    // Fill the board with a checkerboard pattern. Only 1x1 pieces will be playable.
+    for tile in game.tiles.allPoints {
+      if (tile.x + tile.y) % 2 == 0 {
+        game.addPiece(.oneByOne, at: tile)
+      }
+    }
+
+    // Ensure is a one-by-one piece in the set of available pieces
+    while !game.availablePieces.contains(where: { $0?.piece == .oneByOne }) {
+      game.removePiece(inSlot: 0)
+      game.removePiece(inSlot: 1)
+      game.removePiece(inSlot: 2) // will generate new pieces
+    }
+
+    #expect(game.hasPlayableMove)
+
+    // Ensure is _not_ a one-by-one piece in the set of available pieces
+    while game.availablePieces.contains(where: { $0?.piece == .oneByOne }) {
+      game.removePiece(inSlot: 0)
+      game.removePiece(inSlot: 1)
+      game.removePiece(inSlot: 2) // will generate new pieces
+    }
+
+    #expect(!game.hasPlayableMove)
+  }
+
 }
 
 extension [[Tile]] {

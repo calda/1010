@@ -35,15 +35,25 @@ final class Game {
     RandomPiece(),
   ]
 
-  /// The frame of each individual tile within the global coordinate space
-  var tileFrames: [Point: CGRect] = [:]
-
   /// The piece that has just been selected and placed on the board
   private(set) var placedPiece: (piece: Piece, targetTile: Point)? = (piece: .twoByTwo, targetTile: .init(x: 1, y: 1))
 
-  /// The size of tiles on the game board
-  var boardTileSize: CGFloat {
-    tileFrames.values.first?.width ?? 10
+  /// Whether or not there is a playable move based on the available pieces
+  var hasPlayableMove: Bool {
+    // Don't end the game in the brief moment where the pieces haven't been reloaded yet
+    if reloadingPieces {
+      return true
+    }
+
+    for availablePiece in availablePieces.compactMap({ $0?.piece }) {
+      for tile in tiles.allPoints {
+        if canAddPiece(availablePiece, at: tile) {
+          return true
+        }
+      }
+    }
+
+    return false
   }
 
   /// Whether or not it's possible to add the given piece to the given tile on the board
@@ -106,11 +116,17 @@ final class Game {
     availablePieces[slot] = nil
 
     if availablePieces.allSatisfy({ $0 == nil }) {
-      availablePieces = [
-        RandomPiece(),
-        RandomPiece(),
-        RandomPiece(),
-      ]
+      reloadingPieces = true
+      availablePieces[0] = RandomPiece()
+
+      DispatchQueue.main.asyncAfter_syncInUnitTests(deadline: .now() + 0.075) {
+        self.availablePieces[1] = RandomPiece()
+      }
+
+      DispatchQueue.main.asyncAfter_syncInUnitTests(deadline: .now() + 0.15) {
+        self.availablePieces[2] = RandomPiece()
+        self.reloadingPieces = false
+      }
     }
   }
 
@@ -163,6 +179,11 @@ final class Game {
     return (distanceToClosestPointInPiece ?? 0) * 0.025
   }
 
+  // MARK: Private
+
+  /// Whether the available pieces are being reloaded with an animation
+  private var reloadingPieces = false
+
 }
 
 // MARK: - RandomPiece
@@ -180,7 +201,21 @@ struct RandomPiece: Hashable, Identifiable {
 // MARK: - Piece
 
 struct Piece: Hashable {
+  let color: Color
   var tiles: [[Tile]]
+
+  init(color: Color, tiles: [[Int]]) {
+    self.color = color
+    self.tiles = tiles.map { row in
+      row.map { isFilled in
+        if isFilled > 0 {
+          .filled(color)
+        } else {
+          .empty
+        }
+      }
+    }
+  }
 }
 
 // MARK: - Tile
@@ -231,23 +266,6 @@ extension [[Tile]] {
 }
 
 extension Piece {
-
-  // MARK: Lifecycle
-
-  init(color: Color, tiles: [[Int]]) {
-    self.tiles = tiles.map { row in
-      row.map { isFilled in
-        if isFilled > 0 {
-          .filled(color)
-        } else {
-          .empty
-        }
-      }
-    }
-  }
-
-  // MARK: Internal
-
   var height: Int {
     tiles.height
   }
