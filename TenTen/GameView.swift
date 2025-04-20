@@ -39,12 +39,9 @@ struct GameView: View {
     }
     .sheet(isPresented: $presentGameOverSheet) {
       GameOverScreen(startNewGame: {
-        game = Game()
+        game = Game(highScore: game.highScore)
         presentGameOverSheet = false
       })
-      .presentationDetents([.height(425)])
-      .presentationCornerRadius(50)
-      .interactiveDismissDisabled()
     }
   }
 
@@ -55,85 +52,6 @@ struct GameView: View {
   @State private var presentGameOverSheet = false
 
   @Namespace private var placedPiece
-
-}
-
-// MARK: - TopControls
-
-struct TopControls: View {
-
-  // MARK: Internal
-
-  var body: some View {
-    HStack {
-      Spacer()
-        .frame(maxWidth: .infinity)
-
-      ZStack {
-        Image(.logo)
-          .resizable()
-          .scaledToFit()
-          .frame(maxWidth: 150)
-      }
-      .frame(maxWidth: .infinity)
-
-      ZStack {
-        Text("\(game.score)")
-          .foregroundStyle(Color(white: 0.4))
-          .font(.system(size: fontSize, weight: .semibold, design: .rounded))
-          .scaleEffect(scoreScale)
-          .monospacedDigit()
-          .onChange(of: game.score) { _, _ in
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.4)) {
-              scoreScaled = true
-            }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-              withAnimation(.spring()) {
-                scoreScaled = false
-              }
-            }
-          }
-      }
-      .frame(maxWidth: .infinity)
-    }
-  }
-
-  var scoreScale: Double {
-    guard scoreScaled else { return 1 }
-
-    switch scoreNumberOfDigits {
-    case ...4:
-      return 1.05
-    case 5...6:
-      return 1.04
-    case 7...:
-      return 1.03
-    default:
-      return 1
-    }
-  }
-
-  // MARK: Private
-
-  @Environment(\.game) private var game
-  @State private var scoreScaled = false
-
-  private var fontSize: Double {
-    switch scoreNumberOfDigits {
-    case ...4:
-      24
-    case 5...6:
-      22
-    case 7...:
-      20
-    default:
-      24
-    }
-  }
-
-  private var scoreNumberOfDigits: Int {
-    String(abs(game.score)).count
-  }
 
 }
 

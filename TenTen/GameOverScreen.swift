@@ -16,36 +16,43 @@ struct GameOverScreen: View {
   let startNewGame: () -> Void
 
   var body: some View {
-    VStack {
-      Text("No More Room!")
-        .font(.system(size: 24, weight: .bold, design: .rounded))
-        .foregroundStyle(Color(white: 0, opacity: 0.4))
+    ScrollView {
+      VStack {
+        Text("No More Room!")
+          .font(.system(size: 24, weight: .bold, design: .rounded))
+          .foregroundStyle(Color(white: 0, opacity: 0.4))
 
-      Spacer(minLength: 32)
+        Spacer(minLength: 32)
 
-      Image(.gameOverTryAgain)
-        .resizable()
-        .scaledToFit()
+        Image(.gameOverTryAgain)
+          .resizable()
+          .scaledToFit()
 
-      Spacer(minLength: 32)
+        Spacer(minLength: 32)
 
-      RoundedButton(color: .accent) {
-        startNewGame()
-      } label: {
-        Text("New Game")
-          .font(.system(size: 20, weight: .bold, design: .rounded))
+        RoundedButton(color: .accent) {
+          startNewGame()
+        } label: {
+          Text("New Game")
+            .font(.system(size: 20, weight: .bold, design: .rounded))
+        }
       }
+      .padding(.top, 32)
+      .padding(.horizontal, 24)
+      .padding(.bottom, 12)
+      .frame(maxHeight: 425)
     }
-    .padding(.top, 32)
-    .padding(.horizontal, 24)
-    .padding(.bottom, 12)
     .background(Color.accent.quaternary)
+    .presentationDetents([.height(425), .height(55)], selection: $selectedDetent)
+    .presentationContentInteraction(.resizes)
+    .presentationCornerRadius(50)
+    .interactiveDismissDisabled()
   }
 
   // MARK: Private
 
   @Environment(\.game) private var game
-
+  @State private var selectedDetent = PresentationDetent.height(425)
 }
 
 // MARK: - RoundedButton

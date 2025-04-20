@@ -15,13 +15,14 @@ final class Game {
 
   // MARK: Lifecycle
 
-  init() { }
+  init(highScore: Int = 0) {
+    self.highScore = highScore
+  }
 
   // MARK: Internal
 
-  /// The number of points scored so far in this game. You score
-  /// one point for every tile placed on the board.
-  private(set) var score = 0
+  /// The highest score every achieved in any game
+  private(set) var highScore: Int
 
   /// A 10x10 grid of tiles that start empty and are filled by the randomly generated pieces
   private(set) var tiles: [[Tile]] = Array(
@@ -37,6 +38,16 @@ final class Game {
 
   /// The piece that has just been selected and placed on the board
   private(set) var placedPiece: (piece: Piece, targetTile: Point)? = (piece: .twoByTwo, targetTile: .init(x: 1, y: 1))
+
+  /// The number of points scored so far in this game. You score
+  /// one point for every tile placed on the board.
+  private(set) var score = 0 {
+    didSet {
+      if score > highScore {
+        highScore = score
+      }
+    }
+  }
 
   /// Whether or not there is a playable move based on the available pieces
   var hasPlayableMove: Bool {
