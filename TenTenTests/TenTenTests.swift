@@ -170,6 +170,57 @@ struct TenTenTests {
     #expect(!game.hasPlayableMove)
   }
 
+  @Test
+  func rotatePieces() {
+    #expect(Piece.oneByTwo.rotated == Piece(
+      color: Piece.oneByTwo.color,
+      tiles: [
+        [1],
+        [1],
+      ]))
+
+    #expect(Piece.oneByTwo.rotated.rotated == .oneByTwo)
+
+    #expect(Piece.oneByFive.rotated == Piece(
+      color: Piece.oneByFive.color,
+      tiles: [
+        [1],
+        [1],
+        [1],
+        [1],
+        [1],
+      ]))
+
+    #expect(Piece.oneByFive.rotated.rotated == .oneByFive)
+
+    #expect(Piece.twoByTwoElbow.rotated == Piece(
+      color: Piece.twoByTwoElbow.color,
+      tiles: [
+        [0, 1],
+        [1, 1],
+      ]))
+
+    #expect(Piece.twoByTwoElbow.rotated.rotated == Piece(
+      color: Piece.twoByTwoElbow.color,
+      tiles: [
+        [1, 1],
+        [0, 1],
+      ]))
+
+    #expect(Piece.twoByTwoElbow.rotated.rotated.rotated == Piece(
+      color: Piece.twoByTwoElbow.color,
+      tiles: [
+        [1, 1],
+        [1, 0],
+      ]))
+
+    #expect(Piece.twoByTwoElbow.rotated.rotated.rotated.rotated == .twoByTwoElbow)
+
+    #expect(Piece.oneByOne.rotated == .oneByOne)
+    #expect(Piece.twoByTwo.rotated == .twoByTwo)
+    #expect(Piece.threeByThree.rotated == .threeByThree)
+  }
+
 }
 
 extension [[Tile]] {
@@ -185,5 +236,11 @@ extension [[Tile]] {
 extension FloatingPoint {
   public func approximatelyEquals(_ other: Self, within delta: Self = .ulpOfOne) -> Bool {
     abs(self - other) < delta
+  }
+}
+
+extension Piece {
+  var color: TileColor {
+    tiles.lazy.flatMap { $0 }.compactMap { $0.color }.first!
   }
 }

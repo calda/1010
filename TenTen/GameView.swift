@@ -48,8 +48,12 @@ struct GameView: View {
       }
     }
     .onChange(of: game.hasPlayableMove, initial: true) { _, hasPlayableMove in
+      // The game may briefly have no playable moves while animations are playing,
+      // like waiting for rows to be cleared or waiting for the pieces to be reloaded.
+      // Wait a moment to ensure the game really has no playable moves.
       DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-        presentGameOverSheet = !hasPlayableMove
+        guard game.hasPlayableMove == hasPlayableMove else { return }
+        presentGameOverSheet = !game.hasPlayableMove
       }
     }
     .sheet(isPresented: $presentGameOverSheet) {

@@ -64,11 +64,6 @@ final class Game: Codable {
 
   /// Whether or not there is a playable move based on the available pieces
   var hasPlayableMove: Bool {
-    // Don't end the game in the brief moment where the pieces haven't been reloaded yet
-    if reloadingPieces {
-      return true
-    }
-
     for availablePiece in availablePieces.compactMap({ $0?.piece }) {
       for tile in tiles.allPoints {
         if canAddPiece(availablePiece, at: tile) {
@@ -140,7 +135,6 @@ final class Game: Codable {
     availablePieces[slot] = nil
 
     if availablePieces.allSatisfy({ $0 == nil }) {
-      reloadingPieces = true
       availablePieces[0] = RandomPiece()
 
       DispatchQueue.main.asyncAfter_syncInUnitTests(deadline: .now() + 0.075) {
@@ -149,7 +143,6 @@ final class Game: Codable {
 
       DispatchQueue.main.asyncAfter_syncInUnitTests(deadline: .now() + 0.15) {
         self.availablePieces[2] = RandomPiece()
-        self.reloadingPieces = false
       }
     }
   }
@@ -202,11 +195,6 @@ final class Game: Codable {
     let distanceToClosestPointInPiece = tilesInPiece.map { tile.distance(to: $0) }.min()
     return (distanceToClosestPointInPiece ?? 0) * 0.025
   }
-
-  // MARK: Private
-
-  /// Whether the available pieces are being reloaded with an animation
-  private var reloadingPieces = false
 
 }
 

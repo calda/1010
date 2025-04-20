@@ -28,14 +28,35 @@ struct Piece: Hashable, Codable {
 // MARK: - RandomPiece
 
 struct RandomPiece: Hashable, Identifiable, Codable {
-  let id: UUID
-  let piece: Piece
+
+  // MARK: Lifecycle
 
   init() {
     id = UUID()
-    // TODO: Also rotate the piece to a random orientation
-    piece = Piece.all.randomElement()!
+
+    let randomPiece = Piece.all.randomElement()!
+
+    // Rotate the piece 0º, 90º, 180º, or 270º
+    piece =
+      switch (0...3).randomElement()! {
+      case 0:
+        randomPiece
+      case 1:
+        randomPiece.rotated
+      case 2:
+        randomPiece.rotated.rotated
+      case 3:
+        randomPiece.rotated.rotated.rotated
+      default:
+        randomPiece
+      }
   }
+
+  // MARK: Internal
+
+  let id: UUID
+  let piece: Piece
+
 }
 
 // MARK: - Tile
@@ -50,6 +71,7 @@ enum Tile: Hashable, Codable {
 // swiftformat:sort
 enum TileColor: Hashable, Codable {
   case blue
+  case cyan
   case green
   case indigo
   case orange
@@ -57,7 +79,6 @@ enum TileColor: Hashable, Codable {
   case purple
   case red
   case teal
-  case yellow // TODO: Don't use yellow (too bright) or pink (too similar to red)
 
   // MARK: Internal
 
@@ -65,6 +86,8 @@ enum TileColor: Hashable, Codable {
     switch self {
     case .blue:
       .blue
+    case .cyan:
+      .cyan
     case .green:
       .green
     case .indigo:
@@ -79,8 +102,6 @@ enum TileColor: Hashable, Codable {
       .red
     case .teal:
       .teal
-    case .yellow:
-      .yellow
     }
   }
 }
@@ -114,6 +135,21 @@ extension [[Tile]] {
     count
   }
 
+  var rotated: [[Tile]] {
+    var rotated: [[Tile]] = Array(
+      repeating: [Tile](repeating: .empty, count: height),
+      count: width)
+
+    for y in 0 ..< height {
+      for x in 0 ..< width {
+        let rotatedPoint = Point(x: y, y: width - 1 - x)
+        rotated[rotatedPoint] = self[Point(x: x, y: y)]
+      }
+    }
+
+    return rotated
+  }
+
   subscript(point: Point) -> Tile {
     get {
       self[point.y][point.x]
@@ -126,6 +162,15 @@ extension [[Tile]] {
 }
 
 extension Piece {
+
+  // MARK: Lifecycle
+
+  init(tiles: [[Tile]]) {
+    self.tiles = tiles
+  }
+
+  // MARK: Internal
+
   var height: Int {
     tiles.height
   }
@@ -144,6 +189,10 @@ extension Piece {
     }
 
     return points
+  }
+
+  var rotated: Piece {
+    Piece(tiles: tiles.rotated)
   }
 }
 
@@ -230,14 +279,14 @@ extension Piece {
     ])
 
   static let twoByTwoElbow = Piece(
-    color: .pink,
+    color: .cyan,
     tiles: [
       [1, 0],
       [1, 1],
     ])
 
   static let threeByThreeElbow = Piece(
-    color: .yellow,
+    color: .pink,
     tiles: [
       [1, 0, 0],
       [1, 0, 0],
