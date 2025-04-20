@@ -33,6 +33,7 @@ struct RandomPiece: Hashable, Identifiable, Codable {
 
   init() {
     id = UUID()
+    // TODO: Also rotate the piece to a random orientation
     piece = Piece.all.randomElement()!
   }
 }
@@ -48,20 +49,22 @@ enum Tile: Hashable, Codable {
 
 // swiftformat:sort
 enum TileColor: Hashable, Codable {
-  case cyan
+  case blue
   case green
   case indigo
   case orange
   case pink
   case purple
   case red
+  case teal
+  case yellow // TODO: Don't use yellow (too bright) or pink (too similar to red)
 
   // MARK: Internal
 
   var color: Color {
     switch self {
-    case .cyan:
-      .cyan
+    case .blue:
+      .blue
     case .green:
       .green
     case .indigo:
@@ -74,6 +77,10 @@ enum TileColor: Hashable, Codable {
       .purple
     case .red:
       .red
+    case .teal:
+      .teal
+    case .yellow:
+      .yellow
     }
   }
 }
@@ -174,23 +181,24 @@ extension Piece {
     .oneByFour,
     .oneByFive,
     .twoByTwoElbow,
+    .threeByThreeElbow,
   ]
 
   static let oneByOne = Piece(
-    color: .cyan,
+    color: .blue,
     tiles: [
       [1],
     ])
 
   static let twoByTwo = Piece(
-    color: .red,
+    color: .green,
     tiles: [
       [1, 1],
       [1, 1],
     ])
 
   static let threeByThree = Piece(
-    color: .green,
+    color: .red,
     tiles: [
       [1, 1, 1],
       [1, 1, 1],
@@ -198,7 +206,7 @@ extension Piece {
     ])
 
   static let oneByTwo = Piece(
-    color: .purple,
+    color: .teal,
     tiles: [
       [1, 1],
     ])
@@ -216,15 +224,23 @@ extension Piece {
     ])
 
   static let oneByFive = Piece(
-    color: .pink,
+    color: .purple,
     tiles: [
       [1, 1, 1, 1, 1],
     ])
 
   static let twoByTwoElbow = Piece(
-    color: .cyan,
+    color: .pink,
     tiles: [
       [1, 0],
       [1, 1],
+    ])
+
+  static let threeByThreeElbow = Piece(
+    color: .yellow,
+    tiles: [
+      [1, 0, 0],
+      [1, 0, 0],
+      [1, 1, 1],
     ])
 }
