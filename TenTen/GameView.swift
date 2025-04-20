@@ -11,6 +11,12 @@ import SwiftUI
 
 struct GameView: View {
 
+  // MARK: Lifecycle
+
+  init(game: Game) {
+    _game = State(initialValue: game)
+  }
+
   // MARK: Internal
 
   var body: some View {
@@ -32,6 +38,15 @@ struct GameView: View {
     .environment(\.boardLayout, boardLayout)
     .environment(\.placedPieceNamespace) { placedPiece }
     .animation(.interactiveSpring(), value: game.placedPiece?.piece)
+    .onChange(of: try? game.data) { _, gameData in
+      if let gameData {
+        do {
+          try Game.save(data: gameData)
+        } catch {
+          print("Error saving game data: \(error.localizedDescription)")
+        }
+      }
+    }
     .onChange(of: game.hasPlayableMove, initial: true) { _, hasPlayableMove in
       DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
         presentGameOverSheet = !hasPlayableMove
@@ -47,7 +62,7 @@ struct GameView: View {
 
   // MARK: Private
 
-  @State private var game = Game()
+  @State private var game: Game
   @State private var boardLayout = BoardLayout()
   @State private var presentGameOverSheet = false
 
@@ -88,7 +103,7 @@ struct BoardView: View {
 
             ZStack {
               TileView(
-                color: tile.color,
+                color: tile.color?.color,
                 emptyTileColor: Color(white: 0.9))
                 .onGeometryChange(in: .global) { tileFrame in
                   boardLayout.tileFrames[point] = tileFrame
@@ -275,7 +290,7 @@ struct PieceView: View {
           ForEach(0 ..< piece.width, id: \.self) { x in
             let tile = piece.tiles[Point(x: x, y: y)]
             TileView(
-              color: tile.isFilled ? tile.color : .clear,
+              color: tile.isFilled ? tile.color?.color : .clear,
               scale: scale)
               .frame(width: tileSize, height: tileSize)
           }

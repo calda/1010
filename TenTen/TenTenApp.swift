@@ -11,7 +11,12 @@ import SwiftUI
 struct TenTenApp: App {
   var body: some Scene {
     WindowGroup {
-      GameView()
+      switch Game.saved {
+      case .success(let game):
+        GameView(game: game ?? Game())
+      case .failure(let error):
+        Text("Could not load previously saved game: \(error.localizedDescription)")
+      }
     }
   }
 }

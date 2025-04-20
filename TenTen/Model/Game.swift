@@ -11,12 +11,31 @@ import SwiftUI
 // MARK: - Game
 
 @Observable
-final class Game {
+final class Game: Codable {
 
   // MARK: Lifecycle
 
   init(highScore: Int = 0) {
+    score = 0
     self.highScore = highScore
+
+    tiles = Array(
+      repeating: Array(repeating: .empty, count: 10),
+      count: 10)
+
+    availablePieces = [
+      RandomPiece(),
+      RandomPiece(),
+      RandomPiece(),
+    ]
+  }
+
+  init(from decoder: any Decoder) throws {
+    let container = try decoder.container(keyedBy: CodingKeys.self)
+    score = try container.decode(Int.self, forKey: .score)
+    highScore = try container.decode(Int.self, forKey: .highScore)
+    tiles = try container.decode([[Tile]].self, forKey: .tiles)
+    availablePieces = try container.decode([RandomPiece?].self, forKey: .availablePieces)
   }
 
   // MARK: Internal
@@ -25,23 +44,17 @@ final class Game {
   private(set) var highScore: Int
 
   /// A 10x10 grid of tiles that start empty and are filled by the randomly generated pieces
-  private(set) var tiles: [[Tile]] = Array(
-    repeating: Array(repeating: .empty, count: 10),
-    count: 10)
+  private(set) var tiles: [[Tile]]
 
   /// Three slots of randomly generated pieces that can be dragged to the board
-  private(set) var availablePieces: [RandomPiece?] = [
-    RandomPiece(),
-    RandomPiece(),
-    RandomPiece(),
-  ]
+  private(set) var availablePieces: [RandomPiece?]
 
   /// The piece that has just been selected and placed on the board
-  private(set) var placedPiece: (piece: Piece, targetTile: Point)? = (piece: .twoByTwo, targetTile: .init(x: 1, y: 1))
+  private(set) var placedPiece: (piece: Piece, targetTile: Point)?
 
   /// The number of points scored so far in this game. You score
   /// one point for every tile placed on the board.
-  private(set) var score = 0 {
+  private(set) var score: Int {
     didSet {
       if score > highScore {
         highScore = score
@@ -197,194 +210,43 @@ final class Game {
 
 }
 
-// MARK: - RandomPiece
-
-struct RandomPiece: Hashable, Identifiable {
-  let id: UUID
-  let piece: Piece
-
-  init() {
-    id = UUID()
-    piece = Piece.all.randomElement()!
+extension Game {
+  enum CodingKeys: CodingKey {
+    case score
+    case highScore
+    case tiles
+    case availablePieces
   }
-}
 
-// MARK: - Piece
-
-struct Piece: Hashable {
-  let color: Color
-  var tiles: [[Tile]]
-
-  init(color: Color, tiles: [[Int]]) {
-    self.color = color
-    self.tiles = tiles.map { row in
-      row.map { isFilled in
-        if isFilled > 0 {
-          .filled(color)
-        } else {
-          .empty
-        }
-      }
-    }
-  }
-}
-
-// MARK: - Tile
-
-enum Tile: Hashable {
-  case empty
-  case filled(Color)
-}
-
-// MARK: - Point
-
-struct Point: Hashable {
-  let x: Int
-  var y: Int
-
-  init(x: Int, y: Int) {
-    self.x = x
-    self.y = y
-  }
-}
-
-extension [[Tile]] {
-  var allPoints: [Point] {
-    (0 ..< width).flatMap { x in
-      (0 ..< height).map { y in
-        Point(x: x, y: y)
-      }
+  var data: Data {
+    get throws {
+      try JSONEncoder().encode(self)
     }
   }
 
-  var width: Int {
-    self[0].count
-  }
-
-  var height: Int {
-    count
-  }
-
-  subscript(point: Point) -> Tile {
-    get {
-      self[point.y][point.x]
-    }
-    set {
-      self[point.y][point.x] = newValue
-    }
-  }
-
-}
-
-extension Piece {
-  var height: Int {
-    tiles.height
-  }
-
-  var width: Int {
-    tiles.width
-  }
-
-  var points: Int {
-    var points = 0
-
-    for tile in tiles.flatMap({ $0 }) {
-      if tile.isFilled {
-        points += 1
-      }
-    }
-
-    return points
+  func encode(to encoder: any Encoder) throws {
+    var container = encoder.container(keyedBy: CodingKeys.self)
+    try container.encode(score, forKey: .score)
+    try container.encode(highScore, forKey: .highScore)
+    try container.encode(tiles, forKey: .tiles)
+    try container.encode(availablePieces, forKey: .availablePieces)
   }
 }
 
-extension Tile {
-  var isEmpty: Bool {
-    switch self {
-    case .empty:
-      true
-    case .filled:
-      false
+extension Game {
+  static var saved: Result<Game?, Error> {
+    guard let data = NSUbiquitousKeyValueStore().data(forKey: "game") else {
+      return .success(nil)
+    }
+
+    return Result {
+      try JSONDecoder().decode(Game.self, from: data)
     }
   }
 
-  var isFilled: Bool {
-    !isEmpty
+  static func save(data: Data) throws {
+    NSUbiquitousKeyValueStore().set(data, forKey: "game")
   }
-
-  var color: Color? {
-    switch self {
-    case .filled(let color):
-      color
-    case .empty:
-      nil
-    }
-  }
-}
-
-extension Piece {
-  static let all: [Piece] = [
-    .oneByOne,
-    .twoByTwo,
-    .threeByThree,
-    .oneByTwo,
-    .oneByThree,
-    .oneByFour,
-    .oneByFive,
-    .twoByTwoElbow,
-  ]
-
-  static let oneByOne = Piece(
-    color: .cyan,
-    tiles: [
-      [1],
-    ])
-
-  static let twoByTwo = Piece(
-    color: .red,
-    tiles: [
-      [1, 1],
-      [1, 1],
-    ])
-
-  static let threeByThree = Piece(
-    color: .green,
-    tiles: [
-      [1, 1, 1],
-      [1, 1, 1],
-      [1, 1, 1],
-    ])
-
-  static let oneByTwo = Piece(
-    color: .purple,
-    tiles: [
-      [1, 1],
-    ])
-
-  static let oneByThree = Piece(
-    color: .orange,
-    tiles: [
-      [1, 1, 1],
-    ])
-
-  static let oneByFour = Piece(
-    color: .indigo,
-    tiles: [
-      [1, 1, 1, 1],
-    ])
-
-  static let oneByFive = Piece(
-    color: .pink,
-    tiles: [
-      [1, 1, 1, 1, 1],
-    ])
-
-  static let twoByTwoElbow = Piece(
-    color: .cyan,
-    tiles: [
-      [1, 0],
-      [1, 1],
-    ])
 }
 
 extension DispatchQueue {
