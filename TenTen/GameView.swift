@@ -11,13 +11,9 @@ import SwiftUI
 
 struct GameView: View {
 
-  // MARK: Lifecycle
-
-  init(game: Game) {
-    _game = State(initialValue: game)
-  }
-
   // MARK: Internal
+
+  @Binding var game: Game
 
   var body: some View {
     VStack(alignment: .center) {
@@ -54,6 +50,7 @@ struct GameView: View {
       DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
         guard game.hasPlayableMove == hasPlayableMove else { return }
         presentGameOverSheet = !game.hasPlayableMove
+        GameCenterManager.recordFinalScore(game.score)
       }
     }
     .sheet(isPresented: $presentGameOverSheet) {
@@ -66,10 +63,8 @@ struct GameView: View {
 
   // MARK: Private
 
-  @State private var game: Game
   @State private var boardLayout = BoardLayout()
   @State private var presentGameOverSheet = false
-
   @Namespace private var placedPiece
 
 }

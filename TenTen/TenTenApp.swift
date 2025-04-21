@@ -20,14 +20,23 @@ struct TenTenApp: App {
         if let savedGame {
           switch savedGame {
           case .success(let game):
-            GameView(game: game ?? Game())
+            GameView(game: Binding(
+              get: { game },
+              set: { newGame in
+                self.savedGame = .success(newGame)
+              }))
+
           case .failure(let error):
             errorScreen(error: error)
           }
         }
       }
       .onAppear {
-        savedGame = Game.saved
+        savedGame = Game.saved.map { existingGame in
+          existingGame ?? Game()
+        }
+
+        GameCenterManager.authenticateUser()
       }
       .sheet(item: $showErrorDetails) { error in
         Text(String(reflecting: error.error))
@@ -40,7 +49,7 @@ struct TenTenApp: App {
 
   // MARK: Private
 
-  @State private var savedGame: Result<Game?, Error>?
+  @State private var savedGame: Result<Game, Error>?
   @State private var showErrorDetails: ErrorContent?
 
   /// Allow the user to recover by creating a new game if the data is corrupted.
@@ -53,8 +62,9 @@ struct TenTenApp: App {
 
         RoundedButton(color: .accent) {
           do {
-            try Game.save(data: try Game().data)
-            savedGame = Game.saved
+            let newGame = Game()
+            try Game.save(data: try newGame.data)
+            savedGame = .success(newGame)
           } catch {
             print(error)
           }

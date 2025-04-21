@@ -221,6 +221,61 @@ struct TenTenTests {
     #expect(Piece.threeByThree.rotated == .threeByThree)
   }
 
+  @Test
+  func scoreAchievements() {
+    let game = Game()
+    #expect(game.achievements.isEmpty)
+
+    game.updateScore(to: 999)
+    #expect(game.achievements.isEmpty)
+
+    game.updateScore(to: 1_010)
+    #expect(game.achievements == [
+      .oneThousandPoints,
+    ])
+
+    game.updateScore(to: 1_025)
+    #expect(game.achievements == [
+      .oneThousandPoints,
+    ])
+
+    game.updateScore(to: 11_000)
+    #expect(game.achievements == [
+      .oneThousandPoints,
+      .tenThousandPoints,
+    ])
+
+    game.updateScore(to: 21_000)
+    #expect(game.achievements == [
+      .oneThousandPoints,
+      .tenThousandPoints,
+      .twentyOneThousandPoints,
+    ])
+
+    game.updateScore(to: 123_456)
+    #expect(game.achievements == [
+      .oneThousandPoints,
+      .tenThousandPoints,
+      .twentyOneThousandPoints,
+      .oneHundredThousandPoints,
+    ])
+
+    game.updateScore(to: 1_000_001)
+    #expect(game.achievements == [
+      .oneThousandPoints,
+      .tenThousandPoints,
+      .twentyOneThousandPoints,
+      .oneHundredThousandPoints,
+      .oneMillionPoints,
+    ])
+  }
+
+}
+
+extension Game {
+  func updateScore(to score: Int) {
+    increaseScore(by: self.score - score)
+  }
 }
 
 extension [[Tile]] {

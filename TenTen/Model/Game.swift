@@ -28,6 +28,8 @@ final class Game: Codable {
       RandomPiece(),
       RandomPiece(),
     ]
+
+    achievements = []
   }
 
   init(from decoder: any Decoder) throws {
@@ -36,6 +38,7 @@ final class Game: Codable {
     highScore = try container.decode(Int.self, forKey: .highScore)
     tiles = try container.decode([[Tile]].self, forKey: .tiles)
     availablePieces = try container.decode([RandomPiece?].self, forKey: .availablePieces)
+    achievements = try container.decodeIfPresent([Achievement].self, forKey: .achievements) ?? []
   }
 
   // MARK: Internal
@@ -51,6 +54,9 @@ final class Game: Codable {
 
   /// The piece that has just been selected and placed on the board
   private(set) var placedPiece: (piece: Piece, targetTile: Point)?
+
+  /// Achievements scored this game
+  private(set) var achievements: [Achievement]
 
   /// The number of points scored so far in this game. You score
   /// one point for every tile placed on the board.
@@ -100,7 +106,7 @@ final class Game: Codable {
   func addPiece(inSlot slot: Int, at point: Point) {
     guard let piece = availablePieces[slot]?.piece else { return }
 
-    score += piece.points
+    increaseScore(by: piece.points)
     placedPiece = (piece: piece, targetTile: point)
 
     DispatchQueue.main.asyncAfter_syncInUnitTests(deadline: .now() + 0.2) { [self] in
@@ -111,6 +117,25 @@ final class Game: Codable {
       placedPiece = nil
       addPiece(piece, at: point)
       clearFilledRows(placedPiece: piece, placedLocation: point)
+    }
+  }
+
+  /// Increases the score by the given amount and awards any new achievements
+  func increaseScore(by points: Int) {
+    score += points
+
+    let scoreAchievements: [Int: Achievement] = [
+      1_000: .oneThousandPoints,
+      10_000: .tenThousandPoints,
+      21_000: .twentyOneThousandPoints,
+      100_000: .oneHundredThousandPoints,
+      1_000_000: .oneMillionPoints,
+    ]
+
+    for (scoreGoal, achievement) in scoreAchievements {
+      if score >= scoreGoal, !achievements.contains(achievement) {
+        report(achievement)
+      }
     }
   }
 
@@ -196,6 +221,13 @@ final class Game: Codable {
     return (distanceToClosestPointInPiece ?? 0) * 0.025
   }
 
+  // MARK: Private
+
+  private func report(_ achievement: Achievement) {
+    achievements.append(achievement)
+    GameCenterManager.report(achievement)
+  }
+
 }
 
 extension Game {
@@ -204,6 +236,7 @@ extension Game {
     case highScore
     case tiles
     case availablePieces
+    case achievements
   }
 
   var data: Data {
@@ -218,6 +251,7 @@ extension Game {
     try container.encode(highScore, forKey: .highScore)
     try container.encode(tiles, forKey: .tiles)
     try container.encode(availablePieces, forKey: .availablePieces)
+    try container.encode(achievements, forKey: .achievements)
   }
 }
 
