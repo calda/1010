@@ -274,7 +274,7 @@ struct TenTenTests {
 
 extension Game {
   func updateScore(to score: Int) {
-    increaseScore(by: self.score - score)
+    increaseScore(by: score - self.score)
   }
 }
 

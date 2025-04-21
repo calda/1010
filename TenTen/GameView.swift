@@ -33,7 +33,9 @@ struct GameView: View {
     .environment(\.game, game)
     .environment(\.boardLayout, boardLayout)
     .environment(\.placedPieceNamespace) { placedPiece }
-    .animation(.interactiveSpring(), value: game.placedPiece?.piece)
+    .animation(
+      game.placedPiece?.dragDecelerationAnimation ?? .interpolatingSpring(),
+      value: game.placedPiece?.piece)
     .onChange(of: try? game.data) { _, gameData in
       if let gameData {
         do {
@@ -175,17 +177,12 @@ struct PiecesTray: View {
 // MARK: - DraggablePieceView
 
 struct DraggablePieceView: View {
+
+  // MARK: Internal
+
   let piece: Piece
   let id: UUID
   let slot: Int
-  @Environment(\.game) private var game
-  @Environment(\.boardLayout) private var boardLayout
-  @Environment(\.placedPieceNamespace) private var placedPieceNamespace
-  @State private var dragOffset = CGSize.zero
-  @State private var frame = CGRect.zero
-  @State private var selected = false
-  @State private var placed = false
-  @State private var inInitialStateForAppearanceAnimation = true
 
   var body: some View {
     PieceView(
@@ -201,12 +198,17 @@ struct DraggablePieceView: View {
       .onGeometryChange(in: .global) { frame in
         self.frame = frame
       }
-      // Enable the drag gesture
       .scaleEffect(scale)
-      .animation(.spring, value: selected)
-      .animation(.interactiveSpring, value: dragOffset)
-      .offset(x: dragOffset.width, y: dragOffset.height)
+      .offset(
+        x: dragOffset.width + selectionOffset.width,
+        y: dragOffset.height + selectionOffset.height)
+      // Enable the drag gesture. Have the entire space around the piece be draggable.
+      .frame(maxWidth: .infinity, maxHeight: .infinity)
+      .contentShape(Rectangle())
       .gesture(dragGesture)
+      .onGeometryChange(in: .local) { draggableFrame in
+        self.draggableFrame = draggableFrame
+      }
       // Fade in and scale up on appearance
       .opacity(inInitialStateForAppearanceAnimation ? 0 : 1)
       .animation(.bouncy(duration: 0.35, extraBounce: 0.1), value: inInitialStateForAppearanceAnimation)
@@ -219,12 +221,25 @@ struct DraggablePieceView: View {
       }
   }
 
+  // MARK: Private
+
+  @Environment(\.game) private var game
+  @Environment(\.boardLayout) private var boardLayout
+  @Environment(\.placedPieceNamespace) private var placedPieceNamespace
+  @State private var dragOffset = CGSize.zero
+  @State private var selectionOffset = CGSize.zero
+  @State private var frame = CGRect.zero
+  @State private var draggableFrame = CGRect.zero
+  @State private var selected = false
+  @State private var placed = false
+  @State private var inInitialStateForAppearanceAnimation = true
+
   /// The amount to scale down pieces in the tray by, compared to
   /// the tiles of the game board board itself.
   /// Must be small enough for 15 tiles (three 1x5 pieces) can
   /// fit in the width of the 10 tile board, when accounting for
   /// the fact that there is also some additional spacing.
-  let defaultScale: Double = 3 / 5
+  private let defaultScale: Double = 3 / 5
 
   /// The current scale of this piece. When selected, scale the
   /// piece up by the inverse of `defaultScale` so the piece's
@@ -240,19 +255,36 @@ struct DraggablePieceView: View {
   }
 
   private var dragGesture: some Gesture {
-    DragGesture()
+    DragGesture(minimumDistance: 0)
       .onChanged { value in
-        selected = true
-        dragOffset = value.translation
+        let pieceHeight: Double = (
+          (Double(boardLayout.boardTileSize) * Double(piece.height))
+            + (Double(piece.height - 1) * 2))
+
+        let verticalPaddingInTouchArea = (draggableFrame.height - pieceHeight) / 2
+        let bottomOfPieceInDraggableArea = draggableFrame.height - verticalPaddingInTouchArea
+
+        // Offset the piece to act like it was always selected from the bottom of the piece,
+        // plus an additional offset so the piece isn't covered by the user's finge
+        let selectionYOffset = (value.startLocation.y - bottomOfPieceInDraggableArea) - 40
+
+        // Offset the piece to act like it was always selected from the center
+        let selectionXOffset = value.startLocation.x - draggableFrame.width / 2
+
+        withAnimation(.interactiveSpring(response: 0.2)) {
+          selected = true
+          dragOffset = value.translation
+          selectionOffset = CGSize(width: selectionXOffset, height: selectionYOffset)
+        }
       }
-      .onEnded { _ in
+      .onEnded { value in
         let targetTile = boardLayout.tileFrames
           // Only consider tiles where the piece can be played.
           // This allows drags to be less precise as long as the target is still unambiguous
           .filter { tile in
             game.canAddPiece(piece, at: tile.key)
               // Ensure the piece is reasonably close to this tile
-              && abs(tile.value.origin.distance(to: frame.origin)) < boardLayout.boardTileSize
+              && abs(tile.value.origin.distance(to: frame.origin)) < boardLayout.boardTileSize * 1.5
           }
           .min { lhs, rhs in
             let lhsScreenPoint = lhs.value.origin
@@ -260,17 +292,32 @@ struct DraggablePieceView: View {
             return lhsScreenPoint.distance(to: frame.origin) < rhsScreenPoint.distance(to: frame.origin)
           }
 
+        let velocityMagnitude = sqrt(
+          value.velocity.width * value.velocity.width +
+            value.velocity.height * value.velocity.height)
+
         guard
           let point = targetTile?.key,
           game.canAddPiece(piece, at: point)
         else {
-          dragOffset = .zero
-          selected = false
+          let returnToSlotAnimation = Animation.interpolatingSpring(duration: 0.5, initialVelocity: velocityMagnitude / 1000)
+
+          withAnimation(returnToSlotAnimation) {
+            dragOffset = .zero
+            selectionOffset = .zero
+            selected = false
+          }
+
           return
         }
 
         placed = true
-        game.addPiece(inSlot: slot, at: point)
+
+        let dragDecelerationAnimation = Animation.interpolatingSpring(
+          duration: 0.175,
+          initialVelocity: velocityMagnitude / 50)
+
+        game.addPiece(inSlot: slot, at: point, dragDecelerationAnimation: dragDecelerationAnimation)
       }
   }
 }

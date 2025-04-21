@@ -53,7 +53,7 @@ final class Game: Codable {
   private(set) var availablePieces: [RandomPiece?]
 
   /// The piece that has just been selected and placed on the board
-  private(set) var placedPiece: (piece: Piece, targetTile: Point)?
+  private(set) var placedPiece: (piece: Piece, targetTile: Point, dragDecelerationAnimation: Animation?)?
 
   /// Achievements scored this game
   private(set) var achievements: [Achievement]
@@ -103,11 +103,11 @@ final class Game: Codable {
   }
 
   /// Adds the piece in the given slot to the board at the given point
-  func addPiece(inSlot slot: Int, at point: Point) {
+  func addPiece(inSlot slot: Int, at point: Point, dragDecelerationAnimation: Animation? = nil) {
     guard let piece = availablePieces[slot]?.piece else { return }
 
     increaseScore(by: piece.points)
-    placedPiece = (piece: piece, targetTile: point)
+    placedPiece = (piece: piece, targetTile: point, dragDecelerationAnimation: dragDecelerationAnimation)
 
     DispatchQueue.main.asyncAfter_syncInUnitTests(deadline: .now() + 0.2) { [self] in
       withAnimation(nil) {

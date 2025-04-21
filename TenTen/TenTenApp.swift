@@ -44,6 +44,7 @@ struct TenTenApp: App {
           .presentationDetents([.height(300)])
           .presentationDragIndicator(.visible)
       }
+      .preferredColorScheme(.light)
     }
   }
 
