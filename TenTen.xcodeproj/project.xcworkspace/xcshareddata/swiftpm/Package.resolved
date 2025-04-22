@@ -1,6 +1,15 @@
 {
-  "originHash" : "d74badb9712856b4f92580fbd170c51a001fdbd1e99a2aac45fb7c079b020123",
+  "originHash" : "2a0ff1b605db7c1ac6444989148801b497469ada3d170a15728f433a1bb6b145",
   "pins" : [
+    {
+      "identity" : "debouncedonchange",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/Tunous/DebouncedOnChange.git",
+      "state" : {
+        "revision" : "29a60e088293845364294ebc270831997e2a5873",
+        "version" : "2.0.0"
+      }
+    },
     {
       "identity" : "swift",
       "kind" : "remoteSourceControl",

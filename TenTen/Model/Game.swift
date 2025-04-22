@@ -17,6 +17,8 @@ final class Game: Codable {
 
   init(highScore: Int = 0) {
     score = 0
+    achievements = []
+    startDate = .now
     self.highScore = highScore
 
     tiles = Array(
@@ -29,7 +31,10 @@ final class Game: Codable {
       RandomPiece(),
     ]
 
-    achievements = []
+    // When the game starts animate out any existing pieces on the board
+    for point in tiles.allPoints {
+      tileAnimations[point] = .spring
+    }
   }
 
   init(from decoder: any Decoder) throws {
@@ -39,9 +44,13 @@ final class Game: Codable {
     tiles = try container.decode([[Tile]].self, forKey: .tiles)
     availablePieces = try container.decode([RandomPiece?].self, forKey: .availablePieces)
     achievements = try container.decodeIfPresent([Achievement].self, forKey: .achievements) ?? []
+    startDate = try container.decode(Date.self, forKey: .startDate)
   }
 
   // MARK: Internal
+
+  /// The date and time that the user started playing the game
+  let startDate: Date
 
   /// The highest score every achieved in any game
   private(set) var highScore: Int
@@ -52,11 +61,14 @@ final class Game: Codable {
   /// Three slots of randomly generated pieces that can be dragged to the board
   private(set) var availablePieces: [RandomPiece?]
 
+  /// Achievements scored this game
+  private(set) var achievements: [Achievement]
+
   /// The piece that has just been selected and placed on the board
   private(set) var placedPiece: (piece: Piece, targetTile: Point, dragDecelerationAnimation: Animation?)?
 
-  /// Achievements scored this game
-  private(set) var achievements: [Achievement]
+  /// Animations for when pieces should be removed from the board
+  private(set) var tileAnimations = [Point: Animation]()
 
   /// The number of points scored so far in this game. You score
   /// one point for every tile placed on the board.
@@ -109,14 +121,17 @@ final class Game: Codable {
     increaseScore(by: piece.points)
     placedPiece = (piece: piece, targetTile: point, dragDecelerationAnimation: dragDecelerationAnimation)
 
-    DispatchQueue.main.asyncAfter_syncInUnitTests(deadline: .now() + 0.2) { [self] in
+    DispatchQueue.main.asyncAfter_syncInUnitTests(deadline: .now() + 0.15) { [self] in
       withAnimation(nil) {
         self.removePiece(inSlot: slot)
       }
 
       placedPiece = nil
       addPiece(piece, at: point)
-      clearFilledRows(placedPiece: piece, placedLocation: point)
+
+      DispatchQueue.main.async {
+        self.clearFilledRows(placedPiece: piece, placedLocation: point)
+      }
     }
   }
 
@@ -175,7 +190,7 @@ final class Game: Codable {
   /// Clears any row or column of the board that is fully filled with pieces
   func clearFilledRows(placedPiece: Piece, placedLocation: Point) {
     // Compute all of the tiles that are eligible to be cleared before we remove any.
-    var tilesToClear = [(point: Point, delay: Double)]()
+    var tilesToClear = [Point: Double]()
 
     for x in 0...9 {
       let column = Array(0...9).map { y in Point(x: x, y: y) }
@@ -184,7 +199,7 @@ final class Game: Codable {
       if shouldClearColumn {
         for point in column {
           let delay = clearDelay(for: point, placedPiece: placedPiece, placedLocation: placedLocation)
-          tilesToClear.append((point: point, delay: delay))
+          tilesToClear[point] = delay
         }
       }
     }
@@ -196,16 +211,26 @@ final class Game: Codable {
       if shouldClearRow {
         for point in row {
           let delay = clearDelay(for: point, placedPiece: placedPiece, placedLocation: placedLocation)
-          tilesToClear.append((point: point, delay: delay))
+          tilesToClear[point] = delay
         }
       }
     }
 
-    // Remove the tiles with a staggered delay from the clear point
+    for tileToClear in tilesToClear.keys {
+      tiles[tileToClear] = .empty
+    }
+
+    // Store the delays for the cascade animation, and then clear them after the animations start.
+    // This lets the tiles see the delay when the removal animation is performed, but prevents
+    // the animation from still being present if a place is placed there quickly after the clear animation.
+    // We don't use `withAnimation(.spring.delay(delay))` because it doesn't work, and we don't use
+    // `DispatchQueue.main.asyncAfter(deadline: .now() + delay)` because it has performance issues.
     for (tileToClear, delay) in tilesToClear {
-      DispatchQueue.main.asyncAfter_syncInUnitTests(deadline: .now() + delay) {
-        self.tiles[tileToClear] = .empty
-      }
+      tileAnimations[tileToClear] = .spring.delay(delay)
+    }
+
+    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+      self.tileAnimations = [:]
     }
   }
 
@@ -237,11 +262,14 @@ extension Game {
     case tiles
     case availablePieces
     case achievements
+    case startDate
   }
 
   var data: Data {
     get throws {
-      try JSONEncoder().encode(self)
+      let encoder = JSONEncoder()
+      encoder.outputFormatting = .sortedKeys
+      return try encoder.encode(self)
     }
   }
 
@@ -252,6 +280,7 @@ extension Game {
     try container.encode(tiles, forKey: .tiles)
     try container.encode(availablePieces, forKey: .availablePieces)
     try container.encode(achievements, forKey: .achievements)
+    try container.encode(startDate, forKey: .startDate)
   }
 }
 
@@ -272,6 +301,14 @@ extension Game {
 }
 
 extension DispatchQueue {
+  func async_syncInUnitTests(excute: @escaping () -> Void) {
+    if NSClassFromString("XCTest") != nil {
+      excute()
+    } else {
+      async(execute: excute)
+    }
+  }
+
   func asyncAfter_syncInUnitTests(
     deadline: DispatchTime,
     excute: @escaping () -> Void)

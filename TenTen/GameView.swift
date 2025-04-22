@@ -5,6 +5,7 @@
 //  Created by Cal Stephens on 4/13/25.
 //
 
+import DebouncedOnChange
 import SwiftUI
 
 // MARK: - GameView
@@ -36,7 +37,7 @@ struct GameView: View {
     .animation(
       game.placedPiece?.dragDecelerationAnimation ?? .interpolatingSpring(),
       value: game.placedPiece?.piece)
-    .onChange(of: try? game.data) { _, gameData in
+    .onChange(of: try? game.data, debounceTime: .seconds(0.5)) { _, gameData in
       if let gameData {
         do {
           try Game.save(data: gameData)
@@ -45,13 +46,9 @@ struct GameView: View {
         }
       }
     }
-    .onChange(of: game.hasPlayableMove, initial: true) { _, hasPlayableMove in
-      // The game may briefly have no playable moves while animations are playing,
-      // like waiting for rows to be cleared or waiting for the pieces to be reloaded.
-      // Wait a moment to ensure the game really has no playable moves.
-      DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-        guard game.hasPlayableMove == hasPlayableMove else { return }
-        presentGameOverSheet = !game.hasPlayableMove
+    .onChange(of: game.hasPlayableMove, initial: true, debounceTime: .seconds(0.5)) { _, _ in
+      presentGameOverSheet = !game.hasPlayableMove
+      if !game.hasPlayableMove {
         GameCenterManager.recordFinalScore(game.score)
       }
     }
@@ -102,14 +99,13 @@ struct BoardView: View {
             let point = Point(x: x, y: y)
             let tile = game.tiles[point]
 
-            ZStack {
-              TileView(
-                color: tile.color?.color,
-                emptyTileColor: Color(white: 0.9))
-                .onGeometryChange(in: .global) { tileFrame in
-                  boardLayout.tileFrames[point] = tileFrame
-                }
-            }
+            TileView(
+              color: tile.color?.color,
+              emptyTileColor: Color(white: 0.9),
+              removalAnimation: game.tileAnimations[point])
+              .onGeometryChange(in: .global) { tileFrame in
+                boardLayout.tileFrames[point] = tileFrame
+              }
           }
         }
       }
@@ -143,7 +139,7 @@ struct PiecesTray: View {
   var body: some View {
     HStack {
       ForEach(0..<3) { slot in
-        piece(inSlot: slot)
+        PieceSlot(slot: slot, piece: game.availablePieces[slot])
       }
     }
     .padding(.all, 10)
@@ -153,10 +149,18 @@ struct PiecesTray: View {
 
   @Environment(\.game) private var game
 
-  @ViewBuilder
-  private func piece(inSlot slot: Int) -> some View {
-    let piece = game.availablePieces[slot]
+}
 
+// MARK: - PieceSlot
+
+struct PieceSlot: View {
+
+  // MARK: Internal
+
+  let slot: Int
+  let piece: RandomPiece?
+
+  var body: some View {
     Group {
       if let piece {
         DraggablePieceView(piece: piece.piece, id: piece.id, slot: slot)
@@ -170,8 +174,12 @@ struct PiecesTray: View {
     // This prevents the pieces from before and after generating new pieces
     // from being considered the same view, and the new piece receiving
     // animations from the piece that was just placed on the board.
-    .id(game.availablePieces[slot]?.id)
+    .id(piece?.id)
   }
+
+  // MARK: Private
+
+  @Environment(\.game) private var game
 }
 
 // MARK: - DraggablePieceView
@@ -271,7 +279,7 @@ struct DraggablePieceView: View {
         // Offset the piece to act like it was always selected from the center
         let selectionXOffset = value.startLocation.x - draggableFrame.width / 2
 
-        withAnimation(.interactiveSpring(response: 0.2)) {
+        withAnimation(.interactiveSpring(response: selected ? 0.02 : 0.2)) {
           selected = true
           dragOffset = value.translation
           selectionOffset = CGSize(width: selectionXOffset, height: selectionYOffset)
@@ -314,7 +322,7 @@ struct DraggablePieceView: View {
         placed = true
 
         let dragDecelerationAnimation = Animation.interpolatingSpring(
-          duration: 0.175,
+          duration: 0.125,
           initialVelocity: velocityMagnitude / 50)
 
         game.addPiece(inSlot: slot, at: point, dragDecelerationAnimation: dragDecelerationAnimation)
@@ -352,15 +360,16 @@ struct TileView: View {
   var color: Color?
   var scale = 1.0
   var emptyTileColor: Color?
+  var removalAnimation: Animation?
 
   var body: some View {
     ZStack {
       if let emptyTileColor {
-        tile(color: emptyTileColor)
+        SingleTile(color: emptyTileColor, scale: scale)
       }
 
       if let color {
-        tile(color: color)
+        SingleTile(color: color, scale: scale)
           .transition(.asymmetric(
             insertion: .identity,
             removal: .scale(scale: 0).combined(with: .opacity)))
@@ -369,14 +378,21 @@ struct TileView: View {
           .zIndex(10)
       }
     }
-    .animation(.spring, value: isFilled)
+    .animation(removalAnimation, value: isFilled)
   }
 
   var isFilled: Bool {
     color != nil
   }
+}
 
-  func tile(color: Color) -> some View {
+// MARK: - SingleTile
+
+struct SingleTile: View {
+  let color: Color
+  let scale: Double
+
+  var body: some View {
     Rectangle()
       .fill(color)
       .aspectRatio(1, contentMode: .fit)
