@@ -1,17 +1,11 @@
 //
-//  EnvironmentValues.swift
+//  BoardLayout.swift
 //  TenTen
 //
-//  Created by Cal Stephens on 4/19/25.
+//  Created by Cal Stephens on 4/23/25.
 //
 
 import SwiftUI
-
-extension EnvironmentValues {
-  @Entry var game = Game()
-  @Entry var boardLayout = BoardLayout()
-  @Entry var placedPieceNamespace: () -> Namespace.ID = { fatalError() }
-}
 
 @Observable
 final class BoardLayout {

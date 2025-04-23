@@ -11,8 +11,6 @@ import SwiftUI
 
 struct TopControls: View {
 
-  // MARK: Internal
-
   @Binding var game: Game
   @Binding var presentSettingsOverlay: Bool
 
