@@ -6,6 +6,7 @@
 //
 
 import Observation
+import StoreKit
 import SwiftUI
 
 // MARK: - Game
@@ -121,6 +122,7 @@ final class Game: Codable {
     increaseScore(by: piece.points)
     placedPiece = (piece: piece, targetTile: point, dragDecelerationAnimation: dragDecelerationAnimation)
 
+    // Wait for the drag deceleration animation (0.125s) to finish.
     DispatchQueue.main.asyncAfter_syncInUnitTests(deadline: .now() + 0.15) { [self] in
       withAnimation(nil) {
         self.removePiece(inSlot: slot)
@@ -129,7 +131,10 @@ final class Game: Codable {
       placedPiece = nil
       addPiece(piece, at: point)
 
-      DispatchQueue.main.async {
+      // Ensure the piece has been added to the board before we clear the filled rows.
+      // Otherwise SwiftUI may miss the intermediate state where the piece is actually
+      // briefly rendered on the board, and we won't get the expected removal animation.
+      DispatchQueue.main.asyncAfter_syncInUnitTests(deadline: .now() + 0.025) {
         self.clearFilledRows(placedPiece: piece, placedLocation: point)
       }
     }
@@ -137,6 +142,7 @@ final class Game: Codable {
 
   /// Increases the score by the given amount and awards any new achievements
   func increaseScore(by points: Int) {
+    let previousScore = score
     score += points
 
     let scoreAchievements: [Int: Achievement] = [
@@ -150,6 +156,15 @@ final class Game: Codable {
     for (scoreGoal, achievement) in scoreAchievements {
       if score >= scoreGoal, !achievements.contains(achievement) {
         report(achievement)
+      }
+    }
+
+    // When the user passes 500 points, request an app review
+    if score >= 500, previousScore < 500 {
+      Task { @MainActor in
+        if let scene = UIApplication.shared.scene {
+          AppStore.requestReview(in: scene)
+        }
       }
     }
   }

@@ -118,6 +118,10 @@ struct TileView: View {
           .scaleEffect(hidden ? 0 : 1)
           .opacity(hidden ? 0 : 1)
           .animation(.spring, value: hidden)
+          // If a piece is placed on a tile while a removal animation is still playing,
+          // ensure the two tiles are treated as different views. Otherwise there can
+          // be an unexpected insertion animation on the newly added piece.
+          .id(color)
           // Ensure the filled tile is above the empty tile,
           // even when the removal animation is playing.
           .zIndex(10)

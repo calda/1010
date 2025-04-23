@@ -19,9 +19,7 @@ enum GameCenterManager {
 
     localPlayer.authenticateHandler = { loginViewController, _ in
       if let loginViewController {
-        let viewController = (UIApplication.shared.connectedScenes.first as? UIWindowScene)?
-          .windows.first?.rootViewController
-        viewController?.present(loginViewController, animated: true)
+        UIApplication.shared.rootViewController?.present(loginViewController, animated: true)
       }
     }
     #endif
@@ -78,4 +76,14 @@ enum Achievement: String, Hashable, Codable {
   case twentyOneThousandPoints = "21000Points"
   case oneHundredThousandPoints = "100000Points"
   case oneMillionPoints = "1000000Points"
+}
+
+extension UIApplication {
+  var scene: UIWindowScene? {
+    UIApplication.shared.connectedScenes.first as? UIWindowScene
+  }
+
+  var rootViewController: UIViewController? {
+    scene?.windows.first?.rootViewController
+  }
 }

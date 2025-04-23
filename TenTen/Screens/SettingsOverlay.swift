@@ -35,7 +35,7 @@ struct SettingsOverlay: View {
 
       OverlayPiece(visible: isPresented, height: 3, width: 4, color: .purple, point: Point(x: 5, y: 2)) {
         Button {
-          GameCenterManager.displayAchievements()
+          GameCenterManager.displayLeaderboards()
         } label: {
           Text("Leaderboards")
             .font(.system(size: 20, weight: .semibold, design: .rounded))
