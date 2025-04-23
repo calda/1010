@@ -194,6 +194,10 @@ extension Piece {
   var rotated: Piece {
     Piece(tiles: tiles.rotated)
   }
+
+  var color: TileColor {
+    tiles.lazy.flatMap { $0 }.compactMap { $0.color }.first!
+  }
 }
 
 extension Tile {

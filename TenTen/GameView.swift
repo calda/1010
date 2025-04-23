@@ -18,19 +18,25 @@ struct GameView: View {
 
   var body: some View {
     VStack(alignment: .center) {
-      TopControls()
+      TopControls(game: $game, presentSettingsOverlay: $presentSettingsOverlay)
+        .padding(.horizontal, 10)
+        .padding(.top, 20)
+        .padding(.bottom, 10)
+
+      Spacer()
+
+      BoardView(showingSettingsOverlay: presentSettingsOverlay)
+        .overlay {
+          SettingsOverlay(isPresented: $presentSettingsOverlay, game: $game)
+        }
         .padding(.all, 10)
 
       Spacer()
 
-      BoardView()
-        .padding(.all, 10)
-
-      Spacer()
-
-      PiecesTray()
+      PiecesTray(showingSettingsOverlay: presentSettingsOverlay)
         .padding(.bottom, 20)
     }
+    .coordinateSpace(.named("GameView"))
     .environment(\.game, game)
     .environment(\.boardLayout, boardLayout)
     .environment(\.placedPieceNamespace) { placedPiece }
@@ -53,10 +59,7 @@ struct GameView: View {
       }
     }
     .sheet(isPresented: $presentGameOverSheet) {
-      GameOverScreen(startNewGame: {
-        game = Game(highScore: game.highScore)
-        presentGameOverSheet = false
-      })
+      GameOverScreen(game: $game)
     }
   }
 
@@ -64,6 +67,7 @@ struct GameView: View {
 
   @State private var boardLayout = BoardLayout()
   @State private var presentGameOverSheet = false
+  @State private var presentSettingsOverlay = false
   @Namespace private var placedPiece
 
 }
@@ -74,27 +78,28 @@ struct BoardView: View {
 
   // MARK: Internal
 
+  var showingSettingsOverlay: Bool
+
   var body: some View {
     ZStack(alignment: .topLeading) {
       board
       placedPiece
     }
-    .onGeometryChange(in: .global) { boardFrame in
-      boardGlobalOrigin = boardFrame.origin
+    .onGeometryChange(in: .named("GameView")) { boardFrame in
+      boardLayout.boardFrame = boardFrame
     }
   }
 
   // MARK: Private
 
-  @State private var boardGlobalOrigin = CGPoint.zero
   @Environment(\.game) private var game
   @Environment(\.boardLayout) private var boardLayout
   @Environment(\.placedPieceNamespace) private var placedPieceNamespace
 
   private var board: some View {
-    VStack(spacing: 2) {
+    VStack(spacing: boardLayout.tileSpacing) {
       ForEach(0 ..< 10) { y in
-        HStack(spacing: 2) {
+        HStack(spacing: boardLayout.tileSpacing) {
           ForEach(0 ..< 10) { x in
             let point = Point(x: x, y: y)
             let tile = game.tiles[point]
@@ -102,8 +107,9 @@ struct BoardView: View {
             TileView(
               color: tile.color?.color,
               emptyTileColor: Color(white: 0.9),
+              hidden: showingSettingsOverlay,
               removalAnimation: game.tileAnimations[point])
-              .onGeometryChange(in: .global) { tileFrame in
+              .onGeometryChange(in: .named("GameView")) { tileFrame in
                 boardLayout.tileFrames[point] = tileFrame
               }
           }
@@ -114,18 +120,11 @@ struct BoardView: View {
 
   @ViewBuilder
   private var placedPiece: some View {
-    if
-      let placedPiece = game.placedPiece,
-      let globalOrigin = boardLayout.tileFrames[placedPiece.targetTile]
-    {
-      let offsetInBoard = CGSize(
-        width: globalOrigin.origin.x - boardGlobalOrigin.x,
-        height: globalOrigin.origin.y - boardGlobalOrigin.y)
-
+    if let placedPiece = game.placedPiece {
       PieceView(piece: placedPiece.piece, tileSize: boardLayout.boardTileSize, scale: 1)
         .opacity(0) // This piece is only a destination anchor for the dragged piece
         .matchedGeometryEffect(id: "placed piece", in: placedPieceNamespace(), anchor: .topLeading)
-        .offset(offsetInBoard)
+        .offset(boardLayout.offsetInBoard(of: placedPiece.targetTile))
     }
   }
 }
@@ -136,10 +135,15 @@ struct PiecesTray: View {
 
   // MARK: Internal
 
+  let showingSettingsOverlay: Bool
+
   var body: some View {
     HStack {
       ForEach(0..<3) { slot in
         PieceSlot(slot: slot, piece: game.availablePieces[slot])
+          .scaleEffect(showingSettingsOverlay ? 0 : 1)
+          .opacity(showingSettingsOverlay ? 0 : 1)
+          .animation(.spring, value: showingSettingsOverlay)
       }
     }
     .padding(.all, 10)
@@ -203,7 +207,7 @@ struct DraggablePieceView: View {
         anchor: .topLeading,
         isSource: false)
       // Track the view's frame in the global coordinate space
-      .onGeometryChange(in: .global) { frame in
+      .onGeometryChange(in: .named("GameView")) { frame in
         self.frame = frame
       }
       .scaleEffect(scale)
@@ -265,10 +269,7 @@ struct DraggablePieceView: View {
   private var dragGesture: some Gesture {
     DragGesture(minimumDistance: 0)
       .onChanged { value in
-        let pieceHeight: Double = (
-          (Double(boardLayout.boardTileSize) * Double(piece.height))
-            + (Double(piece.height - 1) * 2))
-
+        let pieceHeight = boardLayout.size(of: piece).height
         let verticalPaddingInTouchArea = (draggableFrame.height - pieceHeight) / 2
         let bottomOfPieceInDraggableArea = draggableFrame.height - verticalPaddingInTouchArea
 
@@ -333,14 +334,17 @@ struct DraggablePieceView: View {
 // MARK: - PieceView
 
 struct PieceView: View {
+
+  // MARK: Internal
+
   let piece: Piece
   let tileSize: CGFloat
   let scale: CGFloat
 
   var body: some View {
-    VStack(spacing: 2 * scale) {
+    VStack(spacing: boardLayout.tileSpacing * scale) {
       ForEach(0 ..< piece.height, id: \.self) { y in
-        HStack(spacing: 2 * scale) {
+        HStack(spacing: boardLayout.tileSpacing * scale) {
           ForEach(0 ..< piece.width, id: \.self) { x in
             let tile = piece.tiles[Point(x: x, y: y)]
             TileView(
@@ -352,6 +356,10 @@ struct PieceView: View {
       }
     }
   }
+
+  // MARK: Private
+
+  @Environment(\.boardLayout) private var boardLayout
 }
 
 // MARK: - TileView
@@ -360,6 +368,7 @@ struct TileView: View {
   var color: Color?
   var scale = 1.0
   var emptyTileColor: Color?
+  var hidden = false
   var removalAnimation: Animation?
 
   var body: some View {
@@ -373,6 +382,9 @@ struct TileView: View {
           .transition(.asymmetric(
             insertion: .identity,
             removal: .scale(scale: 0).combined(with: .opacity)))
+          .scaleEffect(hidden ? 0 : 1)
+          .opacity(hidden ? 0 : 1)
+          .animation(.spring, value: hidden)
           // Ensure the filled tile is above the empty tile,
           // even when the removal animation is playing.
           .zIndex(10)

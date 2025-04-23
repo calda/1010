@@ -13,10 +13,21 @@ struct TopControls: View {
 
   // MARK: Internal
 
+  @Binding var game: Game
+  @Binding var presentSettingsOverlay: Bool
+
   var body: some View {
     HStack {
-      Spacer()
-        .frame(maxWidth: .infinity)
+      ZStack {
+        Button {
+          presentSettingsOverlay.toggle()
+        } label: {
+          HamburgerButton(isOpen: presentSettingsOverlay)
+            .frame(width: 30, height: 25)
+            .foregroundStyle(Color(white: 0.7))
+        }
+      }
+      .frame(maxWidth: .infinity)
 
       ZStack {
         Image(.logo)
@@ -27,8 +38,8 @@ struct TopControls: View {
       .frame(maxWidth: .infinity)
 
       VStack {
-        ScoreText("\(game.score)")
-          .foregroundStyle(Color(white: 0.4))
+        ScoreText(game.score.formatted(.number))
+          .foregroundStyle(Color(white: 0.3))
 
         ZStack {
           if game.score == game.highScore {
@@ -37,7 +48,7 @@ struct TopControls: View {
                 insertion: .opacity.combined(with: .scale),
                 removal: .identity))
           } else {
-            ScoreText("\(game.highScore)")
+            ScoreText(game.highScore.formatted(.number))
           }
         }
         .foregroundStyle(Color(white: 0.7))
@@ -52,10 +63,6 @@ struct TopControls: View {
       .frame(maxWidth: .infinity)
     }
   }
-
-  // MARK: Private
-
-  @Environment(\.game) private var game
 
 }
 
@@ -76,6 +83,8 @@ struct ScoreText: View {
   var body: some View {
     Text(text)
       .font(.system(size: fontSize, weight: .semibold, design: .rounded))
+      .lineLimit(1)
+      .minimumScaleFactor(0.5)
       .scaleEffect(scoreScale)
       .monospacedDigit()
       .onChange(of: text) { _, _ in
@@ -126,4 +135,32 @@ struct ScoreText: View {
     text.count
   }
 
+}
+
+// MARK: - HamburgerButton
+
+struct HamburgerButton: View {
+  let isOpen: Bool
+
+  var body: some View {
+    VStack(spacing: 5) {
+      // Top bar
+      RoundedRectangle(cornerRadius: 2)
+        .frame(width: 24, height: 3)
+        .rotationEffect(.degrees(isOpen ? 45 : 0), anchor: .center)
+        .offset(y: isOpen ? 8 : 0)
+
+      // Middle bar
+      RoundedRectangle(cornerRadius: 2)
+        .frame(width: 24, height: 3)
+        .opacity(isOpen ? 0 : 1)
+
+      // Bottom bar
+      RoundedRectangle(cornerRadius: 2)
+        .frame(width: 24, height: 3)
+        .rotationEffect(.degrees(isOpen ? -45 : 0), anchor: .center)
+        .offset(y: isOpen ? -8 : 0)
+    }
+    .animation(.spring(duration: 0.2), value: isOpen)
+  }
 }

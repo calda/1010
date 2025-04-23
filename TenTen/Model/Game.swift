@@ -246,6 +246,11 @@ final class Game: Codable {
     return (distanceToClosestPointInPiece ?? 0) * 0.025
   }
 
+  /// Creates a new game, preserving any persistent data
+  func newGame() -> Game {
+    Game(highScore: highScore)
+  }
+
   // MARK: Private
 
   private func report(_ achievement: Achievement) {

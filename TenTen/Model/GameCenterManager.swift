@@ -54,6 +54,14 @@ enum GameCenterManager {
       }
     }
   }
+
+  static func displayLeaderboards() {
+    GKAccessPoint().trigger(state: .leaderboards) { }
+  }
+
+  static func displayAchievements() {
+    GKAccessPoint().trigger(state: .achievements) { }
+  }
 }
 
 // MARK: - Leaderboard

@@ -13,7 +13,7 @@ struct GameOverScreen: View {
 
   // MARK: Internal
 
-  let startNewGame: () -> Void
+  @Binding var game: Game
 
   var body: some View {
     ScrollView {
@@ -31,7 +31,8 @@ struct GameOverScreen: View {
         Spacer(minLength: 32)
 
         RoundedButton(color: .accent) {
-          startNewGame()
+          game = game.newGame()
+          dismiss()
         } label: {
           Text("New Game")
             .font(.system(size: 20, weight: .bold, design: .rounded))
@@ -51,7 +52,7 @@ struct GameOverScreen: View {
 
   // MARK: Private
 
-  @Environment(\.game) private var game
+  @Environment(\.dismiss) private var dismiss
   @State private var selectedDetent = PresentationDetent.height(425)
 }
 

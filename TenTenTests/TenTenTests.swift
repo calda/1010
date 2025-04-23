@@ -293,9 +293,3 @@ extension FloatingPoint {
     abs(self - other) < delta
   }
 }
-
-extension Piece {
-  var color: TileColor {
-    tiles.lazy.flatMap { $0 }.compactMap { $0.color }.first!
-  }
-}
