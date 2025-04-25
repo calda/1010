@@ -70,7 +70,7 @@ final class Game: Codable {
   private(set) var placedPiece: (piece: RandomPiece, targetTile: Point, dragDecelerationAnimation: Animation?)?
 
   /// The piece that has just been unplaced after an undo
-  private(set) var unplacedPiece: (piece: RandomPiece, tile: Point)?
+  private(set) var unplacedPiece: (piece: RandomPiece, tile: Point, hidden: Bool)?
 
   /// Animations for when pieces should be removed from the board
   private(set) var tileAnimations = [Point: Animation]()
@@ -233,8 +233,7 @@ final class Game: Codable {
   func generateRandomPiece(slot: Int) -> RandomPiece {
     let seed = slot + score + startDate.hashValue
 
-    // var randomPiece = Piece.all.randomElement(seed: seed)
-    var randomPiece = [Piece.oneByOne, Piece.threeByThree].randomElement()!
+    var randomPiece = Piece.all.randomElement(seed: seed)
 
     // Rotate the piece 0º, 90º, 180º, or 270º
     randomPiece =
@@ -305,11 +304,8 @@ final class Game: Codable {
   /// Radiates outwards from the placed piece.
   func clearDelay(for tile: Point, placedPiece: Piece, placedLocation: Point) -> Double {
     // The tiles on the board that are filled in the placed piece
-    let tilesInPiece = placedPiece.tiles.allPoints
-      .filter { placedPiece.tiles[$0].isFilled }
-      .map { Point(x: placedLocation.x + $0.x, y: placedLocation.y + $0.y) }
-
-    let distanceToClosestPointInPiece = tilesInPiece.map { tile.distance(to: $0) }.min()
+    let pieceTilesOnBoard = placedPiece.tilesOnBoard(at: placedLocation)
+    let distanceToClosestPointInPiece = pieceTilesOnBoard.map { tile.distance(to: $0) }.min()
     return (distanceToClosestPointInPiece ?? 0) * 0.025
   }
 
@@ -340,34 +336,71 @@ final class Game: Codable {
 
   /// Restores the most recent undo snapshot and removes it from the undo stack if permitted
   func undoLastMove() {
-    guard canUndoLastMove else { return }
-    let restoredSnapshot = undoHistory.removeFirst()
+    // If there's already an active undo animation, queue this undo to be handled
+    // after that animation ends.
+    guard unplacedPiece == nil else {
+      pendingUndoCount += 1
+      return
+    }
 
-    unplacedPiece = (piece: restoredSnapshot.placedPiece, tile: restoredSnapshot.placedPiecePoint)
+    guard canUndoLastMove else {
+      pendingUndoCount = 0
+      return
+    }
+
+    let restoredSnapshot = undoHistory.removeFirst()
+    let piece = restoredSnapshot.placedPiece
+    let tile = restoredSnapshot.placedPiecePoint
+    unplacedPiece = (piece: piece, tile: tile, hidden: false)
+
+    // Check if placing the tile triggered a clear
+    let pieceTilesInBoard = piece.piece.tilesOnBoard(at: tile)
+    let clearedTilesFromPiece = pieceTilesInBoard.filter { !tiles[$0].isFilled }
+    let pieceTriggeredClear = !clearedTilesFromPiece.isEmpty
+
+    // Restore the board back to its previous state
     restore(restoredSnapshot)
 
-    // TODO: If the piece being undo'd triggered a clear, animate the entire clear
-    // back in before animating the piece to the tray?
+    let animateUnplacedPiece = {
+      // Ensure the unplaced piece anchor coexists with the draggable piece for a moment
+      // so the matched geometry effect animation can play.
+      DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [self] in
+        unplacedPiece = nil
 
-    // If the undo un-clears any rows, animate those back in.
-    animateAllTileUpdates()
-
-    // However, don't animate in any of the tiles from the unplaced piece.
-    let tilesInPiece = restoredSnapshot.placedPiece.piece.tiles.allFilledPoints
-    let pieceTilesInBoard = tilesInPiece.map {
-      Point(
-        x: $0.x + restoredSnapshot.placedPiecePoint.x,
-        y: $0.y + restoredSnapshot.placedPiecePoint.y)
+        // Now that the undo animation is complete, trigger any pending undo
+        if pendingUndoCount > 1 {
+          pendingUndoCount -= 1
+          undoLastMove()
+        }
+      }
     }
 
-    for pieceTile in pieceTilesInBoard {
-      tileAnimations[pieceTile] = nil
+    // If the undo un-clears any rows, animate those back in first.
+    if pieceTriggeredClear {
+      // Restore the cleared pieces of this tile back to the board
+      // so they can be part of the un-clear animation
+      // (the board snapshot is from before the piece was placed)
+      for pieceTileInBoard in pieceTilesInBoard {
+        tiles[pieceTileInBoard] = .filled(piece.piece.color)
+      }
+
+      animateAllTileUpdates()
+
+      // Hide the unplaced piece while we wait for its clear tiles to animate back in
+      unplacedPiece?.hidden = true
+
+      // Play the piece unplace animation after the cleared tiles animate back in
+      DispatchQueue.main.asyncAfter(deadline: .now() + 0.325) {
+        // Unplace the piece tiles that were added temporarily
+        self.tiles = restoredSnapshot.tiles
+
+        self.unplacedPiece?.hidden = false
+        animateUnplacedPiece()
+      }
     }
 
-    // Ensure the unplaced piece anchor coexists with the draggable piece for a moment
-    // so the matched geometry effect animation can play.
-    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-      self.unplacedPiece = nil
+    else {
+      animateUnplacedPiece()
     }
   }
 
@@ -378,12 +411,15 @@ final class Game: Codable {
       tileAnimations[point] = .spring
     }
 
-    DispatchQueue.main.asyncAfter_syncInUnitTests(deadline: .now() + 0.05) {
+    DispatchQueue.main.asyncAfter_syncInUnitTests(deadline: .now() + 0.1) {
       self.tileAnimations = [:]
     }
   }
 
   // MARK: Private
+
+  /// The number of undo actions that are pending because another undo is already animating
+  private var pendingUndoCount = 0
 
   private func report(_ achievement: Achievement) {
     achievements.append(achievement)

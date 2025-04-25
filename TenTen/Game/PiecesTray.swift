@@ -13,8 +13,6 @@ struct PiecesTray: View {
 
   // MARK: Internal
 
-  let showingSettingsOverlay: Bool
-
   var body: some View {
     HStack {
       ForEach(0..<3) { slot in
@@ -30,6 +28,7 @@ struct PiecesTray: View {
   // MARK: Private
 
   @Environment(\.game) private var game
+  @Environment(\.showingSettingsOverlay) private var showingSettingsOverlay
 
 }
 
@@ -98,6 +97,7 @@ struct DraggablePieceView: View {
         in: placedPieceNamespace(),
         anchor: .topLeading,
         isSource: false)
+      .opacity(game.unplacedPiece?.piece.id == id && game.unplacedPiece?.hidden == true ? 0 : 1)
       // Track the view's frame in the global coordinate space
       .onGeometryChange(in: .named("GameView")) { frame in
         self.frame = frame
@@ -113,6 +113,18 @@ struct DraggablePieceView: View {
       .onGeometryChange(in: .local) { draggableFrame in
         self.draggableFrame = draggableFrame
       }
+      // When the game over sheet is presented, it can cancel any active drag gesture,
+      // which would leave the piece floating above the board. To avoid this, manually
+      // reset the gesture state.
+      .onChange(of: showingGameOverScreen) { _, showingGameOverScreen in
+        if showingGameOverScreen {
+          resetDragState(velocityMagnitude: 0)
+        }
+      }
+      // Ensure that the drag gesture is definitely ended when the game over screen
+      // is presented, or it could be possible to continue dragging the piece underneath
+      // the game over sheet.
+      .disabled(showingGameOverScreen)
   }
 
   // MARK: Private
@@ -120,6 +132,7 @@ struct DraggablePieceView: View {
   @Environment(\.game) private var game
   @Environment(\.boardLayout) private var boardLayout
   @Environment(\.placedPieceNamespace) private var placedPieceNamespace
+  @Environment(\.showingGameOverScreen) private var showingGameOverScreen
   @State private var dragOffset = CGSize.zero
   @State private var selectionOffset = CGSize.zero
   @State private var frame = CGRect.zero
@@ -188,14 +201,7 @@ struct DraggablePieceView: View {
           let point = targetTile?.key,
           game.canAddPiece(piece, at: point)
         else {
-          let returnToSlotAnimation = Animation.interpolatingSpring(duration: 0.5, initialVelocity: velocityMagnitude / 1000)
-
-          withAnimation(returnToSlotAnimation) {
-            dragOffset = .zero
-            selectionOffset = .zero
-            selected = false
-          }
-
+          resetDragState(velocityMagnitude: velocityMagnitude)
           return
         }
 
@@ -207,5 +213,17 @@ struct DraggablePieceView: View {
 
         game.addPiece(inSlot: slot, at: point, dragDecelerationAnimation: dragDecelerationAnimation)
       }
+  }
+
+  private func resetDragState(velocityMagnitude: CGFloat) {
+    let returnToSlotAnimation = Animation.interpolatingSpring(
+      duration: 0.5,
+      initialVelocity: velocityMagnitude / 1000)
+
+    withAnimation(returnToSlotAnimation) {
+      dragOffset = .zero
+      selectionOffset = .zero
+      selected = false
+    }
   }
 }

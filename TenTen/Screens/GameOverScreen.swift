@@ -31,16 +31,22 @@ struct GameOverScreen: View {
         Spacer(minLength: 32)
 
         RoundedButton(color: .accent) {
-          game = game.newGame()
           dismiss()
+
+          DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            game = game.newGame()
+          }
         } label: {
           Text("New Game")
             .font(.system(size: 20, weight: .bold, design: .rounded))
         }
 
         RoundedButton(color: Color(white: 0, opacity: 0.3)) {
-          // TODO: Dismiss the game over sheet before playing the animation
-          game.undoLastMove()
+          dismiss()
+
+          DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            game.undoLastMove()
+          }
         } label: {
           Text("Undo Last Move")
             .font(.system(size: 20, weight: .bold, design: .rounded))

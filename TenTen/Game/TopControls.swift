@@ -78,7 +78,8 @@ struct TopControls: View {
   // MARK: Private
 
   private var undoButtonEnabled: Bool {
-    game.canUndoLastMove && !presentSettingsOverlay
+    game.canUndoLastMove
+      && !presentSettingsOverlay
   }
 
 }

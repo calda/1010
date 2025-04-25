@@ -101,16 +101,6 @@ extension [[Tile]] {
     }
   }
 
-  var allFilledPoints: [Point] {
-    (0 ..< width).flatMap { x in
-      (0 ..< height).compactMap { y in
-        let point = Point(x: x, y: y)
-        guard self[point].isFilled else { return nil }
-        return point
-      }
-    }
-  }
-
   var width: Int {
     self[0].count
   }
@@ -142,7 +132,6 @@ extension [[Tile]] {
       self[point.y][point.x] = newValue
     }
   }
-
 }
 
 extension Piece {
@@ -181,6 +170,13 @@ extension Piece {
 
   var color: TileColor {
     tiles.lazy.flatMap { $0 }.compactMap { $0.color }.first!
+  }
+
+  /// The tiles on the board that would be filled after placing the piece at the given point
+  func tilesOnBoard(at placedLocation: Point) -> [Point] {
+    tiles.allPoints
+      .filter { tiles[$0].isFilled }
+      .map { Point(x: placedLocation.x + $0.x, y: placedLocation.y + $0.y) }
   }
 }
 

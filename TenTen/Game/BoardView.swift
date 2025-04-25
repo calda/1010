@@ -13,8 +13,6 @@ struct BoardView: View {
 
   // MARK: Internal
 
-  var showingSettingsOverlay: Bool
-
   var body: some View {
     ZStack(alignment: .topLeading) {
       board
@@ -31,6 +29,7 @@ struct BoardView: View {
   @Environment(\.game) private var game
   @Environment(\.boardLayout) private var boardLayout
   @Environment(\.placedPieceNamespace) private var placedPieceNamespace
+  @Environment(\.showingSettingsOverlay) private var showingSettingsOverlay
 
   private var board: some View {
     VStack(spacing: boardLayout.tileSpacing) {

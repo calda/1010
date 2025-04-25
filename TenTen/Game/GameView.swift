@@ -25,7 +25,7 @@ struct GameView: View {
 
       Spacer()
 
-      BoardView(showingSettingsOverlay: presentSettingsOverlay)
+      BoardView()
         .overlay {
           SettingsOverlay(isPresented: $presentSettingsOverlay, game: $game)
         }
@@ -33,13 +33,15 @@ struct GameView: View {
 
       Spacer()
 
-      PiecesTray(showingSettingsOverlay: presentSettingsOverlay)
+      PiecesTray()
         .padding(.bottom, 20)
     }
     .coordinateSpace(.named("GameView"))
     .environment(\.game, game)
     .environment(\.boardLayout, boardLayout)
     .environment(\.placedPieceNamespace) { placedPiece }
+    .environment(\.showingSettingsOverlay, presentSettingsOverlay)
+    .environment(\.showingGameOverScreen, presentGameOverSheet)
     .animation(
       game.placedPiece?.dragDecelerationAnimation ?? .interpolatingSpring(),
       value: game.placedPiece?.piece)
