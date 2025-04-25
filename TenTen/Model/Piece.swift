@@ -5,6 +5,7 @@
 //  Created by Cal Stephens on 4/20/25.
 //
 
+import GameplayKit
 import SwiftUI
 
 // MARK: - Piece
@@ -28,35 +29,8 @@ struct Piece: Hashable, Codable {
 // MARK: - RandomPiece
 
 struct RandomPiece: Hashable, Identifiable, Codable {
-
-  // MARK: Lifecycle
-
-  init() {
-    id = UUID()
-
-    let randomPiece = Piece.all.randomElement()!
-
-    // Rotate the piece 0º, 90º, 180º, or 270º
-    piece =
-      switch (0...3).randomElement()! {
-      case 0:
-        randomPiece
-      case 1:
-        randomPiece.rotated
-      case 2:
-        randomPiece.rotated.rotated
-      case 3:
-        randomPiece.rotated.rotated.rotated
-      default:
-        randomPiece
-      }
-  }
-
-  // MARK: Internal
-
   let id: UUID
   let piece: Piece
-
 }
 
 // MARK: - Tile
@@ -123,6 +97,16 @@ extension [[Tile]] {
     (0 ..< width).flatMap { x in
       (0 ..< height).map { y in
         Point(x: x, y: y)
+      }
+    }
+  }
+
+  var allFilledPoints: [Point] {
+    (0 ..< width).flatMap { x in
+      (0 ..< height).compactMap { y in
+        let point = Point(x: x, y: y)
+        guard self[point].isFilled else { return nil }
+        return point
       }
     }
   }

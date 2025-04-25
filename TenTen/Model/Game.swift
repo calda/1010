@@ -5,6 +5,7 @@
 //  Created by Cal Stephens on 4/13/25.
 //
 
+import GameplayKit
 import Observation
 import StoreKit
 import SwiftUI
@@ -20,22 +21,18 @@ final class Game: Codable {
     score = 0
     achievements = []
     startDate = .now
+    undoHistory = []
     self.highScore = highScore
 
     tiles = Array(
       repeating: Array(repeating: .empty, count: 10),
       count: 10)
 
-    availablePieces = [
-      RandomPiece(),
-      RandomPiece(),
-      RandomPiece(),
-    ]
+    availablePieces = []
+    reloadAvailablePiecesIfNeeded()
 
-    // When the game starts animate out any existing pieces on the board
-    for point in tiles.allPoints {
-      tileAnimations[point] = .spring
-    }
+    // When the game starts, animate out any existing pieces on the board
+    animateAllTileUpdates()
   }
 
   init(from decoder: any Decoder) throws {
@@ -46,6 +43,7 @@ final class Game: Codable {
     availablePieces = try container.decode([RandomPiece?].self, forKey: .availablePieces)
     achievements = try container.decodeIfPresent([Achievement].self, forKey: .achievements) ?? []
     startDate = try container.decode(Date.self, forKey: .startDate)
+    undoHistory = try container.decodeIfPresent([UndoSnapshot].self, forKey: .undoHistory) ?? []
   }
 
   // MARK: Internal
@@ -65,8 +63,14 @@ final class Game: Codable {
   /// Achievements scored this game
   private(set) var achievements: [Achievement]
 
+  /// Previous game states that can be restored
+  private(set) var undoHistory: [UndoSnapshot]
+
   /// The piece that has just been selected and placed on the board
-  private(set) var placedPiece: (piece: Piece, targetTile: Point, dragDecelerationAnimation: Animation?)?
+  private(set) var placedPiece: (piece: RandomPiece, targetTile: Point, dragDecelerationAnimation: Animation?)?
+
+  /// The piece that has just been unplaced after an undo
+  private(set) var unplacedPiece: (piece: RandomPiece, tile: Point)?
 
   /// Animations for when pieces should be removed from the board
   private(set) var tileAnimations = [Point: Animation]()
@@ -94,6 +98,15 @@ final class Game: Codable {
     return false
   }
 
+  /// Whether or not the last move can be undone
+  var canUndoLastMove: Bool {
+    guard !undoHistory.isEmpty else { return false }
+
+    return undoHistory[0].canBeUndoneDuringGameplay
+      // Any move can be undone on the game over screen
+      || !hasPlayableMove
+  }
+
   /// Whether or not it's possible to add the given piece to the given tile on the board
   func canAddPiece(_ piece: Piece, at point: Point) -> Bool {
     guard
@@ -117,19 +130,28 @@ final class Game: Codable {
 
   /// Adds the piece in the given slot to the board at the given point
   func addPiece(inSlot slot: Int, at point: Point, dragDecelerationAnimation: Animation? = nil) {
-    guard let piece = availablePieces[slot]?.piece else { return }
+    guard
+      let randomPiece = availablePieces[slot],
+      canAddPiece(randomPiece.piece, at: point)
+    else { return }
+
+    let piece = randomPiece.piece
+    recordUndoSnapshot(didPlacePiece: randomPiece, at: point)
 
     increaseScore(by: piece.points)
-    placedPiece = (piece: piece, targetTile: point, dragDecelerationAnimation: dragDecelerationAnimation)
+    placedPiece = (piece: randomPiece, targetTile: point, dragDecelerationAnimation: dragDecelerationAnimation)
 
     // Wait for the drag deceleration animation (0.125s) to finish.
     DispatchQueue.main.asyncAfter_syncInUnitTests(deadline: .now() + 0.15) { [self] in
+      // Use `withAnimation` to avoid an unexpected animation when
+      // clearing the placed piece from its slot.
       withAnimation(nil) {
-        self.removePiece(inSlot: slot)
+        removePiece(inSlot: slot)
       }
 
       placedPiece = nil
       addPiece(piece, at: point)
+      reloadAvailablePiecesIfNeeded()
 
       // Ensure the piece has been added to the board before we clear the filled rows.
       // Otherwise SwiftUI may miss the intermediate state where the piece is actually
@@ -184,22 +206,52 @@ final class Game: Codable {
     }
   }
 
-  /// Removes the piece that is currently available in the given slot,
-  /// and refills the slots with new random pieces if necessary.
+  /// Removes the piece in the given spot after it's been played
   func removePiece(inSlot slot: Int) {
     availablePieces[slot] = nil
+  }
 
-    if availablePieces.allSatisfy({ $0 == nil }) {
-      availablePieces[0] = RandomPiece()
+  /// Reloads the set of available pieces if all slots are empty
+  func reloadAvailablePiecesIfNeeded(newPieces: [RandomPiece]? = nil) {
+    guard availablePieces.allSatisfy({ $0 == nil }) else { return }
 
-      DispatchQueue.main.asyncAfter_syncInUnitTests(deadline: .now() + 0.075) {
-        self.availablePieces[1] = RandomPiece()
-      }
-
-      DispatchQueue.main.asyncAfter_syncInUnitTests(deadline: .now() + 0.15) {
-        self.availablePieces[2] = RandomPiece()
-      }
+    if let newPieces {
+      assert(newPieces.count == 3)
+      availablePieces = newPieces
+    } else {
+      availablePieces = [
+        generateRandomPiece(slot: 0),
+        generateRandomPiece(slot: 1),
+        generateRandomPiece(slot: 2),
+      ]
     }
+  }
+
+  /// Generates a random piece, seeded by the game start date
+  /// This ensures if we undo to before a set of pieces was generated,
+  /// then we still get the same set of generated pieces next time.
+  func generateRandomPiece(slot: Int) -> RandomPiece {
+    let seed = slot + score + startDate.hashValue
+
+    // var randomPiece = Piece.all.randomElement(seed: seed)
+    var randomPiece = [Piece.oneByOne, Piece.threeByThree].randomElement()!
+
+    // Rotate the piece 0º, 90º, 180º, or 270º
+    randomPiece =
+      switch [0, 1, 2, 3].randomElement(seed: seed) {
+      case 0:
+        randomPiece
+      case 1:
+        randomPiece.rotated
+      case 2:
+        randomPiece.rotated.rotated
+      case 3:
+        randomPiece.rotated.rotated.rotated
+      default:
+        randomPiece
+      }
+
+    return RandomPiece(id: UUID(), piece: randomPiece)
   }
 
   /// Clears any row or column of the board that is fully filled with pieces
@@ -244,7 +296,7 @@ final class Game: Codable {
       tileAnimations[tileToClear] = .spring.delay(delay)
     }
 
-    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+    DispatchQueue.main.asyncAfter_syncInUnitTests(deadline: .now() + 0.05) {
       self.tileAnimations = [:]
     }
   }
@@ -266,6 +318,71 @@ final class Game: Codable {
     Game(highScore: highScore)
   }
 
+  /// Records an entry in the undo stack that can be restored later.
+  func recordUndoSnapshot(didPlacePiece placedPiece: RandomPiece, at point: Point) {
+    // You can't undo after receiving new random pieces (except on the game over screen)
+    // so you can never undo more than three times in a row.
+    let undoStackLimit = 3
+
+    let snapshot = UndoSnapshot(
+      score: score,
+      tiles: tiles,
+      availablePieces: availablePieces,
+      placedPiece: placedPiece,
+      placedPiecePoint: point)
+
+    undoHistory.insert(snapshot, at: 0)
+
+    while undoHistory.count > undoStackLimit {
+      undoHistory.removeLast()
+    }
+  }
+
+  /// Restores the most recent undo snapshot and removes it from the undo stack if permitted
+  func undoLastMove() {
+    guard canUndoLastMove else { return }
+    let restoredSnapshot = undoHistory.removeFirst()
+
+    unplacedPiece = (piece: restoredSnapshot.placedPiece, tile: restoredSnapshot.placedPiecePoint)
+    restore(restoredSnapshot)
+
+    // TODO: If the piece being undo'd triggered a clear, animate the entire clear
+    // back in before animating the piece to the tray?
+
+    // If the undo un-clears any rows, animate those back in.
+    animateAllTileUpdates()
+
+    // However, don't animate in any of the tiles from the unplaced piece.
+    let tilesInPiece = restoredSnapshot.placedPiece.piece.tiles.allFilledPoints
+    let pieceTilesInBoard = tilesInPiece.map {
+      Point(
+        x: $0.x + restoredSnapshot.placedPiecePoint.x,
+        y: $0.y + restoredSnapshot.placedPiecePoint.y)
+    }
+
+    for pieceTile in pieceTilesInBoard {
+      tileAnimations[pieceTile] = nil
+    }
+
+    // Ensure the unplaced piece anchor coexists with the draggable piece for a moment
+    // so the matched geometry effect animation can play.
+    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+      self.unplacedPiece = nil
+    }
+  }
+
+  /// Animates any updates to tiles (removals or insertions) by temporarily
+  /// providing a `tileAnimation` for all points on the board.
+  func animateAllTileUpdates() {
+    for point in tiles.allPoints {
+      tileAnimations[point] = .spring
+    }
+
+    DispatchQueue.main.asyncAfter_syncInUnitTests(deadline: .now() + 0.05) {
+      self.tileAnimations = [:]
+    }
+  }
+
   // MARK: Private
 
   private func report(_ achievement: Achievement) {
@@ -283,6 +400,7 @@ extension Game {
     case availablePieces
     case achievements
     case startDate
+    case undoHistory
   }
 
   var data: Data {
@@ -301,6 +419,7 @@ extension Game {
     try container.encode(availablePieces, forKey: .availablePieces)
     try container.encode(achievements, forKey: .achievements)
     try container.encode(startDate, forKey: .startDate)
+    try container.encode(undoHistory, forKey: .undoHistory)
   }
 }
 
@@ -319,6 +438,38 @@ extension Game {
     NSUbiquitousKeyValueStore().set(data, forKey: "game")
   }
 }
+
+// MARK: - UndoSnapshot
+
+/// A snapshot of game state that can be restored later
+struct UndoSnapshot: Codable {
+  let score: Int
+  let tiles: [[Tile]]
+  let availablePieces: [RandomPiece?]
+
+  /// The piece that was placed when this snapshot was created
+  let placedPiece: RandomPiece
+
+  /// The point that `placedPiece` was placed at on the board
+  let placedPiecePoint: Point
+
+  /// Whether or not this move can be undone during normal gameplay.
+  /// We don't allow undoing a move after the random pieces are regenerated.
+  /// From the game over screen, any move can be undone.
+  var canBeUndoneDuringGameplay: Bool {
+    availablePieces.count(where: { $0 != nil }) > 1
+  }
+}
+
+extension Game {
+  private func restore(_ undoSnapshot: UndoSnapshot) {
+    score = undoSnapshot.score
+    tiles = undoSnapshot.tiles
+    availablePieces = undoSnapshot.availablePieces
+  }
+}
+
+// MARK: Helpers
 
 extension DispatchQueue {
   func async_syncInUnitTests(excute: @escaping () -> Void) {
@@ -350,5 +501,19 @@ extension CGPoint {
 extension Point {
   func distance(to point: Point) -> CGFloat {
     CGPoint(x: x, y: y).distance(to: CGPoint(x: point.x, y: point.y))
+  }
+}
+
+extension RandomAccessCollection where Index == Int {
+  /// Returns a random element in this collection, using the given random seed.
+  func randomElement(seed: Int) -> Element {
+    assert(!isEmpty)
+
+    let distribution = GKRandomDistribution(
+      randomSource: GKMersenneTwisterRandomSource(seed: UInt64(abs(seed))),
+      lowestValue: indices.first!,
+      highestValue: indices.last!)
+
+    return self[distribution.nextInt()]
   }
 }

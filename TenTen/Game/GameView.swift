@@ -43,6 +43,7 @@ struct GameView: View {
     .animation(
       game.placedPiece?.dragDecelerationAnimation ?? .interpolatingSpring(),
       value: game.placedPiece?.piece)
+    .animation(.spring, value: game.unplacedPiece?.piece)
     .onChange(of: try? game.data, debounceTime: .seconds(0.5)) { _, gameData in
       if let gameData {
         do {

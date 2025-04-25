@@ -43,20 +43,29 @@ struct PieceSlot: View {
   let piece: RandomPiece?
 
   var body: some View {
-    Group {
+    ZStack {
       if let piece {
         DraggablePieceView(piece: piece.piece, id: piece.id, slot: slot)
           .frame(maxWidth: .infinity, maxHeight: .infinity)
+          .transition(.asymmetric(
+            insertion: .scale.combined(with: .opacity),
+            removal: .identity))
+          // Use a random UUID as the ID for each random piece's view.
+          // This prevents the pieces from before and after generating new pieces
+          // from being considered the same view, and the new piece receiving
+          // animations from the piece that was just placed on the board.
+          .id(piece.id)
       } else {
         Color.clear
       }
     }
     .aspectRatio(1, contentMode: .fit)
-    // Use a random UUID as the ID for each random piece's view.
-    // This prevents the pieces from before and after generating new pieces
-    // from being considered the same view, and the new piece receiving
-    // animations from the piece that was just placed on the board.
-    .id(piece?.id)
+    // Animate an appearance animation, except after following an undo
+    .animation(
+      game.unplacedPiece?.piece == piece
+        ? nil
+        : .bouncy(duration: 0.35, extraBounce: 0.1).delay(0.075 * Double(slot)),
+      value: piece)
   }
 
   // MARK: Private
@@ -80,7 +89,12 @@ struct DraggablePieceView: View {
       tileSize: boardLayout.boardTileSize * defaultScale,
       scale: defaultScale)
       .matchedGeometryEffect(
-        id: placed && game.placedPiece?.piece == piece ? "placed piece" : "\(slot)",
+        id: game.placedPiece?.piece.id == id ? "placed piece" : "\(slot)",
+        in: placedPieceNamespace(),
+        anchor: .topLeading,
+        isSource: false)
+      .matchedGeometryEffect(
+        id: game.unplacedPiece?.piece.id == id ? "unplaced piece" : "\(slot)",
         in: placedPieceNamespace(),
         anchor: .topLeading,
         isSource: false)
@@ -99,16 +113,6 @@ struct DraggablePieceView: View {
       .onGeometryChange(in: .local) { draggableFrame in
         self.draggableFrame = draggableFrame
       }
-      // Fade in and scale up on appearance
-      .opacity(inInitialStateForAppearanceAnimation ? 0 : 1)
-      .animation(.bouncy(duration: 0.35, extraBounce: 0.1), value: inInitialStateForAppearanceAnimation)
-      .onChange(of: inInitialStateForAppearanceAnimation, initial: true) { _, inInitialState in
-        if inInitialState {
-          DispatchQueue.main.async {
-            inInitialStateForAppearanceAnimation = false
-          }
-        }
-      }
   }
 
   // MARK: Private
@@ -122,7 +126,6 @@ struct DraggablePieceView: View {
   @State private var draggableFrame = CGRect.zero
   @State private var selected = false
   @State private var placed = false
-  @State private var inInitialStateForAppearanceAnimation = true
 
   /// The amount to scale down pieces in the tray by, compared to
   /// the tiles of the game board board itself.
@@ -135,9 +138,7 @@ struct DraggablePieceView: View {
   /// piece up by the inverse of `defaultScale` so the piece's
   /// tiles are the same size as the board tiles.
   private var scale: Double {
-    if inInitialStateForAppearanceAnimation {
-      0.0
-    } else if selected {
+    if selected || game.unplacedPiece?.piece.id == id {
       1 / defaultScale
     } else {
       1

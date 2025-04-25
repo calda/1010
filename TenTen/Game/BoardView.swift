@@ -19,6 +19,7 @@ struct BoardView: View {
     ZStack(alignment: .topLeading) {
       board
       placedPiece
+      unplacedPiece
     }
     .onGeometryChange(in: .named("GameView")) { boardFrame in
       boardLayout.boardFrame = boardFrame
@@ -43,7 +44,7 @@ struct BoardView: View {
               color: tile.color?.color,
               emptyTileColor: Color(white: 0.9),
               hidden: showingSettingsOverlay,
-              removalAnimation: game.tileAnimations[point])
+              animation: game.tileAnimations[point])
               .onGeometryChange(in: .named("GameView")) { tileFrame in
                 boardLayout.tileFrames[point] = tileFrame
               }
@@ -56,10 +57,20 @@ struct BoardView: View {
   @ViewBuilder
   private var placedPiece: some View {
     if let placedPiece = game.placedPiece {
-      PieceView(piece: placedPiece.piece, tileSize: boardLayout.boardTileSize, scale: 1)
+      PieceView(piece: placedPiece.piece.piece, tileSize: boardLayout.boardTileSize, scale: 1)
         .opacity(0) // This piece is only a destination anchor for the dragged piece
         .matchedGeometryEffect(id: "placed piece", in: placedPieceNamespace(), anchor: .topLeading)
         .offset(boardLayout.offsetInBoard(of: placedPiece.targetTile))
+    }
+  }
+
+  @ViewBuilder
+  private var unplacedPiece: some View {
+    if let unplacedPiece = game.unplacedPiece {
+      PieceView(piece: unplacedPiece.piece.piece, tileSize: boardLayout.boardTileSize, scale: 1)
+        .opacity(0) // This piece is only a destination anchor for the dragged piece
+        .matchedGeometryEffect(id: "unplaced piece", in: placedPieceNamespace(), anchor: .topLeading)
+        .offset(boardLayout.offsetInBoard(of: unplacedPiece.tile))
     }
   }
 }
@@ -102,7 +113,7 @@ struct TileView: View {
   var scale = 1.0
   var emptyTileColor: Color?
   var hidden = false
-  var removalAnimation: Animation?
+  var animation: Animation?
 
   var body: some View {
     ZStack {
@@ -112,9 +123,7 @@ struct TileView: View {
 
       if let color {
         SingleTile(color: color, scale: scale)
-          .transition(.asymmetric(
-            insertion: .identity,
-            removal: .scale(scale: 0).combined(with: .opacity)))
+          .transition(.scale(scale: 0).combined(with: .opacity))
           .scaleEffect(hidden ? 0 : 1)
           .opacity(hidden ? 0 : 1)
           .animation(.spring, value: hidden)
@@ -127,7 +136,7 @@ struct TileView: View {
           .zIndex(10)
       }
     }
-    .animation(removalAnimation, value: isFilled)
+    .animation(animation, value: isFilled)
   }
 
   var isFilled: Bool {

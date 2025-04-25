@@ -37,14 +37,22 @@ struct GameOverScreen: View {
           Text("New Game")
             .font(.system(size: 20, weight: .bold, design: .rounded))
         }
+
+        RoundedButton(color: Color(white: 0, opacity: 0.3)) {
+          // TODO: Dismiss the game over sheet before playing the animation
+          game.undoLastMove()
+        } label: {
+          Text("Undo Last Move")
+            .font(.system(size: 20, weight: .bold, design: .rounded))
+        }
       }
       .padding(.top, 32)
       .padding(.horizontal, 24)
       .padding(.bottom, 12)
-      .frame(maxHeight: 425)
+      .frame(maxHeight: GameOverScreen.height)
     }
     .background(Color.accent.quaternary)
-    .presentationDetents([.height(425), .height(55)], selection: $selectedDetent)
+    .presentationDetents([.height(GameOverScreen.height), .height(55)], selection: $selectedDetent)
     .presentationContentInteraction(.resizes)
     .presentationCornerRadius(50)
     .interactiveDismissDisabled()
@@ -52,8 +60,11 @@ struct GameOverScreen: View {
 
   // MARK: Private
 
+  private static let height = 465.0
+
   @Environment(\.dismiss) private var dismiss
-  @State private var selectedDetent = PresentationDetent.height(425)
+  @State private var selectedDetent = PresentationDetent.height(GameOverScreen.height)
+
 }
 
 // MARK: - RoundedButton

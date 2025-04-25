@@ -11,19 +11,32 @@ import SwiftUI
 
 struct TopControls: View {
 
+  // MARK: Internal
+
   @Binding var game: Game
   @Binding var presentSettingsOverlay: Bool
 
   var body: some View {
     HStack {
-      ZStack {
+      VStack(spacing: 20) {
         Button {
           presentSettingsOverlay.toggle()
         } label: {
           HamburgerButton(isOpen: presentSettingsOverlay)
-            .frame(width: 30, height: 25)
+            .frame(width: 35, height: 30)
             .foregroundStyle(Color(white: 0.7))
         }
+
+        Button {
+          game.undoLastMove()
+        } label: {
+          Image(systemName: "arrow.uturn.backward.circle.fill")
+            .font(.system(size: 30))
+            .foregroundStyle(Color(white: 0.8))
+        }
+        .disabled(!undoButtonEnabled)
+        .opacity(undoButtonEnabled ? 1.0 : 0.3)
+        .animation(.linear(duration: 0.25), value: undoButtonEnabled)
       }
       .frame(maxWidth: .infinity)
 
@@ -60,6 +73,12 @@ struct TopControls: View {
       }
       .frame(maxWidth: .infinity)
     }
+  }
+
+  // MARK: Private
+
+  private var undoButtonEnabled: Bool {
+    game.canUndoLastMove && !presentSettingsOverlay
   }
 
 }

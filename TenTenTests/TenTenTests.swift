@@ -5,6 +5,7 @@
 //  Created by Cal Stephens on 4/13/25.
 //
 
+import Foundation
 import Testing
 @testable import TenTen
 
@@ -59,8 +60,8 @@ struct TenTenTests {
   @Test
   func reloadsSlotsAfterPlacingPieces() {
     let game = Game()
-    let initialPieces = game.availablePieces
-    var expectedScore = 0
+    game.updateAvailablePieces(to: [.oneByOne, .twoByTwo, .threeByThree])
+
     #expect(game.availablePieces[0] != nil)
     #expect(game.availablePieces[1] != nil)
     #expect(game.availablePieces[2] != nil)
@@ -69,27 +70,19 @@ struct TenTenTests {
     #expect(game.availablePieces[0] == nil)
     #expect(game.availablePieces[1] != nil)
     #expect(game.availablePieces[2] != nil)
-
-    expectedScore += initialPieces[0]?.piece.points ?? 0
-    #expect(game.score == expectedScore)
+    #expect(game.score == 1)
 
     game.addPiece(inSlot: 1, at: Point(x: 4, y: 4))
     #expect(game.availablePieces[0] == nil)
     #expect(game.availablePieces[1] == nil)
     #expect(game.availablePieces[2] != nil)
-
-    expectedScore += initialPieces[1]?.piece.points ?? 0
-    #expect(game.score == expectedScore)
+    #expect(game.score == 1 + 4)
 
     game.addPiece(inSlot: 2, at: Point(x: 7, y: 7))
     #expect(game.availablePieces[0] != nil)
     #expect(game.availablePieces[1] != nil)
     #expect(game.availablePieces[2] != nil)
-
-    expectedScore += initialPieces[2]?.piece.points ?? 0
-    #expect(game.score == expectedScore)
-
-    #expect(game.availablePieces != initialPieces)
+    #expect(game.score == 1 + 4 + 9)
   }
 
   @Test
@@ -151,22 +144,10 @@ struct TenTenTests {
       }
     }
 
-    // Ensure is a one-by-one piece in the set of available pieces
-    while !game.availablePieces.contains(where: { $0?.piece == .oneByOne }) {
-      game.removePiece(inSlot: 0)
-      game.removePiece(inSlot: 1)
-      game.removePiece(inSlot: 2) // will generate new pieces
-    }
-
+    game.updateAvailablePieces(to: [.oneByOne, .threeByThree, .threeByThree])
     #expect(game.hasPlayableMove)
 
-    // Ensure is _not_ a one-by-one piece in the set of available pieces
-    while game.availablePieces.contains(where: { $0?.piece == .oneByOne }) {
-      game.removePiece(inSlot: 0)
-      game.removePiece(inSlot: 1)
-      game.removePiece(inSlot: 2) // will generate new pieces
-    }
-
+    game.updateAvailablePieces(to: [.threeByThree, .threeByThree, .threeByThree])
     #expect(!game.hasPlayableMove)
   }
 
@@ -270,11 +251,113 @@ struct TenTenTests {
     ])
   }
 
+  @Test
+  func undoLastMove() {
+    let game = Game()
+    #expect(!game.canUndoLastMove)
+
+    let firstPiece = game.availablePieces[0]
+    let emptyBoard = game.tiles
+
+    game.addPiece(inSlot: 0, at: Point(x: 0, y: 0))
+    #expect(game.canUndoLastMove)
+    #expect(game.availablePieces[0] == nil)
+    #expect(game.tiles != emptyBoard)
+
+    // Undo a single move
+    game.undoLastMove()
+    #expect(!game.canUndoLastMove)
+    #expect(game.availablePieces[0] == firstPiece)
+    #expect(game.tiles == emptyBoard)
+
+    // Undo two moves in a row
+    game.addPiece(inSlot: 0, at: Point(x: 1, y: 1))
+    game.addPiece(inSlot: 1, at: Point(x: 2, y: 2))
+    #expect(game.tiles != emptyBoard)
+    #expect(game.canUndoLastMove)
+    game.undoLastMove()
+    #expect(game.canUndoLastMove)
+    game.undoLastMove()
+
+    #expect(!game.canUndoLastMove)
+    #expect(game.tiles == emptyBoard)
+
+    // During gameplay you can't undo after regenerating new pieces
+    game.addPiece(inSlot: 0, at: Point(x: 1, y: 1))
+    game.addPiece(inSlot: 1, at: Point(x: 2, y: 2))
+    game.addPiece(inSlot: 2, at: Point(x: 5, y: 5))
+    #expect(!game.canUndoLastMove)
+  }
+
+  @Test
+  func canUndoThroughRegeneratedPiecesAtEndOfGame() {
+    let game = Game()
+
+    // Fill the board with a checkerboard pattern. Only 1x1 pieces will be playable.
+    for tile in game.tiles.allPoints {
+      if (tile.x + tile.y) % 2 == 0 {
+        game.addPiece(.oneByOne, at: tile)
+      }
+    }
+
+    // Place the three pieces
+    let initialBoard = game.tiles
+    game.updateAvailablePieces(to: [.oneByOne, .oneByOne, .oneByOne])
+    game.addPiece(inSlot: 0, at: Point(x: 1, y: 0))
+    #expect(game.canUndoLastMove)
+
+    game.addPiece(inSlot: 1, at: Point(x: 3, y: 0))
+    #expect(game.canUndoLastMove)
+
+    let boardBeforeLosing = game.tiles
+    game.addPiece(inSlot: 2, at: Point(x: 5, y: 0))
+
+    /// The pieces that were actually randomly generated after placing the last piece.
+    /// These are stored in the undo snapshot.
+    let actuallyRandomlyGeneratedPiece = game.availablePieces.map { $0?.piece }
+
+    // If the game had generated playable pieces, then the user can't undo the last move
+    game.updateAvailablePieces(to: [.oneByOne, .oneByOne, .oneByOne])
+    #expect(game.hasPlayableMove)
+    #expect(!game.canUndoLastMove)
+
+    // If the game had generated unplayable pieces, let the user undo the last move
+    // from the undo screen.
+    game.updateAvailablePieces(to: [.threeByThree, .threeByThree, .threeByThree])
+    #expect(!game.hasPlayableMove)
+    #expect(game.canUndoLastMove)
+
+    game.undoLastMove()
+    #expect(game.tiles == boardBeforeLosing)
+
+    game.undoLastMove()
+    game.undoLastMove()
+    #expect(game.tiles == initialBoard)
+
+    // Place the pieces again and regenerate more pieces. Since the piece generation
+    // is seeded, we should get the same random pieces both times.
+    game.addPiece(inSlot: 0, at: Point(x: 1, y: 0))
+    game.addPiece(inSlot: 1, at: Point(x: 3, y: 0))
+    game.addPiece(inSlot: 2, at: Point(x: 5, y: 0))
+    #expect(game.availablePieces.map { $0?.piece } == actuallyRandomlyGeneratedPiece)
+  }
+
 }
+
+// MARK: Helpers
 
 extension Game {
   func updateScore(to score: Int) {
     increaseScore(by: score - self.score)
+  }
+
+  func updateAvailablePieces(to availablePieces: [Piece]) {
+    removePiece(inSlot: 0)
+    removePiece(inSlot: 1)
+    removePiece(inSlot: 2)
+
+    reloadAvailablePiecesIfNeeded(
+      newPieces: availablePieces.map { RandomPiece(id: UUID(), piece: $0) })
   }
 }
 
