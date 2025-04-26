@@ -342,6 +342,38 @@ struct TenTenTests {
     #expect(game.availablePieces.map { $0?.piece } == actuallyRandomlyGeneratedPiece)
   }
 
+  @Test
+  func miscAchievements() {
+    let game = Game()
+    #expect(game.achievements.isEmpty)
+
+    game.updateAvailablePieces(to: [.oneByOne, .twoByTwo, .threeByThree])
+    #expect(game.achievements.isEmpty)
+
+    game.updateAvailablePieces(to: [.oneByOne, .oneByOne, .oneByOne])
+    #expect(game.achievements.last == .allOneByOnes)
+
+    game.updateAvailablePieces(to: [.threeByThree, .threeByThree, .threeByThree])
+    #expect(game.achievements.last == .allThreeByThrees)
+
+    game.addPiece(.threeByThree, at: Point(x: 0, y: 0))
+    game.addPiece(.threeByThree, at: Point(x: 0, y: 3))
+    game.addPiece(.threeByThree, at: Point(x: 0, y: 6))
+    game.addPiece(.oneByThree, at: Point(x: 0, y: 9))
+    game.clearFilledRows(placedPiece: .oneByThree, placedLocation: Point(x: 0, y: 9))
+    #expect(game.achievements.last == .clearEntireBoard)
+
+    game.addPiece(.threeByThree, at: Point(x: 0, y: 3))
+    game.addPiece(.threeByThree, at: Point(x: 0, y: 6))
+    game.addPiece(.oneByThree, at: Point(x: 0, y: 9))
+    game.addPiece(.threeByThree, at: Point(x: 3, y: 0))
+    game.addPiece(.threeByThree, at: Point(x: 6, y: 0))
+    game.addPiece(.oneByThree.rotated, at: Point(x: 9, y: 0))
+    game.addPiece(.threeByThree, at: Point(x: 0, y: 0))
+    game.clearFilledRows(placedPiece: .threeByThree, placedLocation: Point(x: 0, y: 0))
+    #expect(game.achievements.last == .sixClears)
+  }
+
 }
 
 // MARK: Helpers

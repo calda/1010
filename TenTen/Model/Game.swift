@@ -225,6 +225,15 @@ final class Game: Codable {
         generateRandomPiece(slot: 2),
       ]
     }
+
+    // Award achievements for randomly getting all 3x3s or 1x1s
+    if availablePieces.allSatisfy({ $0?.piece == .threeByThree }) {
+      report(.allThreeByThrees)
+    }
+
+    if availablePieces.allSatisfy({ $0?.piece == .oneByOne }) {
+      report(.allOneByOnes)
+    }
   }
 
   /// Generates a random piece, seeded by the game start date
@@ -257,12 +266,15 @@ final class Game: Codable {
   func clearFilledRows(placedPiece: Piece, placedLocation: Point) {
     // Compute all of the tiles that are eligible to be cleared before we remove any.
     var tilesToClear = [Point: Double]()
+    var clears = 0
 
     for x in 0...9 {
       let column = Array(0...9).map { y in Point(x: x, y: y) }
       let shouldClearColumn = column.allSatisfy { tiles[$0].isFilled }
 
       if shouldClearColumn {
+        clears += 1
+
         for point in column {
           let delay = clearDelay(for: point, placedPiece: placedPiece, placedLocation: placedLocation)
           tilesToClear[point] = delay
@@ -275,6 +287,8 @@ final class Game: Codable {
       let shouldClearRow = row.allSatisfy { tiles[$0].isFilled }
 
       if shouldClearRow {
+        clears += 1
+
         for point in row {
           let delay = clearDelay(for: point, placedPiece: placedPiece, placedLocation: placedLocation)
           tilesToClear[point] = delay
@@ -284,6 +298,16 @@ final class Game: Codable {
 
     for tileToClear in tilesToClear.keys {
       tiles[tileToClear] = .empty
+    }
+
+    // Award an achievement after clearing the entire board
+    if clears >= 1, tiles.allPoints.allSatisfy({ tiles[$0].isEmpty }) {
+      report(.clearEntireBoard)
+    }
+
+    // Award an achievement after clearing 6 rows/columns at once with a 3x3 piece
+    if clears == 6 {
+      report(.sixClears)
     }
 
     // Store the delays for the cascade animation, and then clear them after the animations start.
@@ -309,9 +333,10 @@ final class Game: Codable {
     return (distanceToClosestPointInPiece ?? 0) * 0.025
   }
 
-  /// Creates a new game, preserving any persistent data
+  /// Creates a new game, preserving any persistent data, and recording the final score of this game
   func newGame() -> Game {
-    Game(highScore: highScore)
+    GameCenterManager.recordFinalScore(score)
+    return Game(highScore: highScore)
   }
 
   /// Records an entry in the undo stack that can be restored later.
@@ -422,6 +447,7 @@ final class Game: Codable {
   private var pendingUndoCount = 0
 
   private func report(_ achievement: Achievement) {
+    guard !achievements.contains(achievement) else { return }
     achievements.append(achievement)
     GameCenterManager.report(achievement)
   }

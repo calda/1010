@@ -76,6 +76,10 @@ enum Achievement: String, Hashable, Codable {
   case twentyOneThousandPoints = "21000Points"
   case oneHundredThousandPoints = "100000Points"
   case oneMillionPoints = "1000000Points"
+  case allOneByOnes = "AllOneByOnes"
+  case allThreeByThrees = "AllThreeByThrees"
+  case clearEntireBoard = "ClearEntireBoard"
+  case sixClears = "SixClears"
 }
 
 extension UIApplication {

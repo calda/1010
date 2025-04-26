@@ -57,9 +57,6 @@ struct GameView: View {
     }
     .onChange(of: game.hasPlayableMove, initial: true, debounceTime: .seconds(0.5)) { _, _ in
       presentGameOverSheet = !game.hasPlayableMove
-      if !game.hasPlayableMove {
-        GameCenterManager.recordFinalScore(game.score)
-      }
     }
     .sheet(isPresented: $presentGameOverSheet) {
       GameOverScreen(game: $game)
