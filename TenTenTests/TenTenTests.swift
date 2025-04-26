@@ -374,6 +374,22 @@ struct TenTenTests {
     #expect(game.achievements.last == .sixClears)
   }
 
+  @Test
+  func spawnRates() {
+    // Generate 1,000,000 random pieces and ensure that the distribution
+    // matches the expected spawn rates
+    var randomPieces = [Piece]()
+    for i in 0 ..< 1_000_000 {
+      randomPieces.append(Piece.spawnTable.randomElement(seed: 21 + i))
+    }
+
+    for (piece, expectedSpawnRate) in Piece.spawnRates {
+      let experiencedSpawnRate = Double(randomPieces.count(where: { $0 == piece })) / Double(randomPieces.count)
+      let expectedSpawnRate = Double(expectedSpawnRate) / 100.0
+      #expect(experiencedSpawnRate.approximatelyEquals(expectedSpawnRate, within: 0.001))
+    }
+  }
+
 }
 
 // MARK: Helpers

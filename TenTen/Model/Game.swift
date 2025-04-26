@@ -242,7 +242,7 @@ final class Game: Codable {
   func generateRandomPiece(slot: Int) -> RandomPiece {
     let seed = slot + score + startDate.hashValue
 
-    var randomPiece = Piece.all.randomElement(seed: seed)
+    var randomPiece = Piece.spawnTable.randomElement(seed: seed)
 
     // Rotate the piece 0º, 90º, 180º, or 270º
     randomPiece =

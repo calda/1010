@@ -205,17 +205,18 @@ extension Tile {
 }
 
 extension Piece {
-  static let all: [Piece] = [
-    .oneByOne,
-    .twoByTwo,
-    .threeByThree,
-    .oneByTwo,
-    .oneByThree,
-    .oneByFour,
-    .oneByFive,
-    .twoByTwoElbow,
-    .threeByThreeElbow,
-  ]
+  static let spawnTable: [Piece] = {
+    var spawnTable = [Piece]()
+
+    for (piece, spawnRate) in spawnRates {
+      for _ in 0..<spawnRate {
+        spawnTable.append(piece)
+      }
+    }
+
+    assert(spawnTable.count == 100)
+    return spawnTable
+  }()
 
   static let oneByOne = Piece(
     color: .blue,
@@ -276,4 +277,19 @@ extension Piece {
       [1, 0, 0],
       [1, 1, 1],
     ])
+
+  static var spawnRates: [Piece: Int] {
+    [
+      .oneByOne: 6,
+      .threeByThree: 6,
+      .oneByFour: 9,
+      .threeByThreeElbow: 9,
+      .twoByTwo: 14,
+      .oneByTwo: 14,
+      .oneByThree: 14,
+      .oneByFive: 14,
+      .twoByTwoElbow: 14,
+    ]
+  }
+
 }
