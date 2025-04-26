@@ -192,8 +192,8 @@ final class Game: Codable {
       }
     }
 
-    // When the user passes 500 points, request an app review
-    if score >= 500, previousScore < 500 {
+    // When the user passes 500 points for the first time, request an app review
+    if score >= 500, previousScore < 500, isHighScore {
       Task { @MainActor in
         if let scene = UIApplication.shared.scene {
           AppStore.requestReview(in: scene)
