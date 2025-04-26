@@ -59,7 +59,7 @@ struct TenTenTests {
 
   @Test
   func reloadsSlotsAfterPlacingPieces() {
-    let game = Game()
+    let game = Game(highScore: 5)
     game.updateAvailablePieces(to: [.oneByOne, .twoByTwo, .threeByThree])
 
     #expect(game.availablePieces[0] != nil)
@@ -71,18 +71,21 @@ struct TenTenTests {
     #expect(game.availablePieces[1] != nil)
     #expect(game.availablePieces[2] != nil)
     #expect(game.score == 1)
+    #expect(game.highScore == 5)
 
     game.addPiece(inSlot: 1, at: Point(x: 4, y: 4))
     #expect(game.availablePieces[0] == nil)
     #expect(game.availablePieces[1] == nil)
     #expect(game.availablePieces[2] != nil)
     #expect(game.score == 1 + 4)
+    #expect(game.highScore == 5)
 
     game.addPiece(inSlot: 2, at: Point(x: 7, y: 7))
     #expect(game.availablePieces[0] != nil)
     #expect(game.availablePieces[1] != nil)
     #expect(game.availablePieces[2] != nil)
-    #expect(game.score == 1 + 4 + 9)
+    #expect(game.score == 14)
+    #expect(game.highScore == 14)
   }
 
   @Test
@@ -254,7 +257,9 @@ struct TenTenTests {
   @Test
   func undoLastMove() {
     let game = Game()
+    game.updateAvailablePieces(to: [.oneByOne, .oneByOne, .oneByOne])
     #expect(!game.canUndoLastMove)
+    #expect(game.isHighScore)
 
     let firstPiece = game.availablePieces[0]
     let emptyBoard = game.tiles
@@ -263,12 +268,18 @@ struct TenTenTests {
     #expect(game.canUndoLastMove)
     #expect(game.availablePieces[0] == nil)
     #expect(game.tiles != emptyBoard)
+    #expect(game.score == 1)
+    #expect(game.highScore == 1)
+    #expect(game.isHighScore)
 
     // Undo a single move
     game.undoLastMove()
     #expect(!game.canUndoLastMove)
     #expect(game.availablePieces[0] == firstPiece)
     #expect(game.tiles == emptyBoard)
+    #expect(game.score == 0)
+    #expect(game.highScore == 1)
+    #expect(game.isHighScore)
 
     // Undo two moves in a row
     game.addPiece(inSlot: 0, at: Point(x: 1, y: 1))
@@ -287,6 +298,7 @@ struct TenTenTests {
     game.addPiece(inSlot: 1, at: Point(x: 2, y: 2))
     game.addPiece(inSlot: 2, at: Point(x: 5, y: 5))
     #expect(!game.canUndoLastMove)
+    #expect(game.isHighScore)
   }
 
   @Test

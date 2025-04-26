@@ -23,6 +23,7 @@ final class Game: Codable {
     startDate = .now
     undoHistory = []
     self.highScore = highScore
+    isHighScore = (highScore == 0)
 
     tiles = Array(
       repeating: Array(repeating: .empty, count: 10),
@@ -37,13 +38,18 @@ final class Game: Codable {
 
   init(from decoder: any Decoder) throws {
     let container = try decoder.container(keyedBy: CodingKeys.self)
-    score = try container.decode(Int.self, forKey: .score)
-    highScore = try container.decode(Int.self, forKey: .highScore)
+    let score = try container.decode(Int.self, forKey: .score)
+    let highScore = try container.decode(Int.self, forKey: .highScore)
+    self.score = score
+    self.highScore = highScore
+
     tiles = try container.decode([[Tile]].self, forKey: .tiles)
     availablePieces = try container.decode([RandomPiece?].self, forKey: .availablePieces)
-    achievements = try container.decodeIfPresent([Achievement].self, forKey: .achievements) ?? []
     startDate = try container.decode(Date.self, forKey: .startDate)
-    undoHistory = try container.decodeIfPresent([UndoSnapshot].self, forKey: .undoHistory) ?? []
+
+    achievements = (try? container.decodeIfPresent([Achievement].self, forKey: .achievements)) ?? []
+    undoHistory = (try? container.decode([UndoSnapshot].self, forKey: .undoHistory)) ?? []
+    isHighScore = (try? container.decode(Bool.self, forKey: .isHighScore)) ?? (highScore <= score)
   }
 
   // MARK: Internal
@@ -51,8 +57,15 @@ final class Game: Codable {
   /// The date and time that the user started playing the game
   let startDate: Date
 
+  /// The number of points scored so far in this game. You score
+  /// one point for every tile placed on the board.
+  private(set) var score: Int
+
   /// The highest score every achieved in any game
   private(set) var highScore: Int
+
+  /// Whether or not the current game is the user's high score
+  private(set) var isHighScore: Bool
 
   /// A 10x10 grid of tiles that start empty and are filled by the randomly generated pieces
   private(set) var tiles: [[Tile]]
@@ -74,16 +87,6 @@ final class Game: Codable {
 
   /// Animations for when pieces should be removed from the board
   private(set) var tileAnimations = [Point: Animation]()
-
-  /// The number of points scored so far in this game. You score
-  /// one point for every tile placed on the board.
-  private(set) var score: Int {
-    didSet {
-      if score > highScore {
-        highScore = score
-      }
-    }
-  }
 
   /// Whether or not there is a playable move based on the available pieces
   var hasPlayableMove: Bool {
@@ -169,6 +172,11 @@ final class Game: Codable {
   func increaseScore(by points: Int) {
     let previousScore = score
     score += points
+
+    if score > highScore {
+      highScore = score
+      isHighScore = true
+    }
 
     let scoreAchievements: [Int: Achievement] = [
       1_000: .oneThousandPoints,
@@ -472,6 +480,7 @@ extension Game {
     case achievements
     case startDate
     case undoHistory
+    case isHighScore
   }
 
   var data: Data {
@@ -491,6 +500,7 @@ extension Game {
     try container.encode(achievements, forKey: .achievements)
     try container.encode(startDate, forKey: .startDate)
     try container.encode(undoHistory, forKey: .undoHistory)
+    try container.encode(isHighScore, forKey: .isHighScore)
   }
 }
 

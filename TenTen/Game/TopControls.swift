@@ -70,7 +70,7 @@ struct TopControls: View {
         .foregroundStyle(Color(white: 0.3))
 
       ZStack {
-        if game.score == game.highScore {
+        if game.isHighScore {
           ScoreText("HIGH SCORE")
             .transition(.asymmetric(
               insertion: .opacity.combined(with: .scale),
