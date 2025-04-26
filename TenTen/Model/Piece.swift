@@ -205,6 +205,20 @@ extension Tile {
 }
 
 extension Piece {
+  /// The spawn percentage of each individual piece
+  static let spawnRates: [Piece: Int] = [
+    .oneByOne: 6,
+    .threeByThree: 6,
+    .oneByFour: 9,
+    .threeByThreeElbow: 9,
+    .twoByTwo: 14,
+    .oneByTwo: 14,
+    .oneByThree: 14,
+    .oneByFive: 14,
+    .twoByTwoElbow: 14,
+  ]
+
+  /// An array that can be randomly sampled to spawn pieces at the expected spawn rates
   static let spawnTable: [Piece] = {
     var spawnTable = [Piece]()
 
@@ -217,7 +231,9 @@ extension Piece {
     assert(spawnTable.count == 100)
     return spawnTable
   }()
+}
 
+extension Piece {
   static let oneByOne = Piece(
     color: .blue,
     tiles: [
@@ -277,19 +293,4 @@ extension Piece {
       [1, 0, 0],
       [1, 1, 1],
     ])
-
-  static var spawnRates: [Piece: Int] {
-    [
-      .oneByOne: 6,
-      .threeByThree: 6,
-      .oneByFour: 9,
-      .threeByThreeElbow: 9,
-      .twoByTwo: 14,
-      .oneByTwo: 14,
-      .oneByThree: 14,
-      .oneByFive: 14,
-      .twoByTwoElbow: 14,
-    ]
-  }
-
 }

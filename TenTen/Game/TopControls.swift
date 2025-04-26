@@ -18,27 +18,8 @@ struct TopControls: View {
 
   var body: some View {
     HStack {
-      VStack(spacing: 20) {
-        Button {
-          presentSettingsOverlay.toggle()
-        } label: {
-          HamburgerButton(isOpen: presentSettingsOverlay)
-            .frame(width: 35, height: 30)
-            .foregroundStyle(Color(white: 0.7))
-        }
-
-        Button {
-          game.undoLastMove()
-        } label: {
-          Image(systemName: "arrow.uturn.backward.circle.fill")
-            .font(.system(size: 30))
-            .foregroundStyle(Color(white: 0.8))
-        }
-        .disabled(!undoButtonEnabled)
-        .opacity(undoButtonEnabled ? 1.0 : 0.3)
-        .animation(.linear(duration: 0.25), value: undoButtonEnabled)
-      }
-      .frame(maxWidth: .infinity)
+      buttons
+        .frame(maxWidth: .infinity)
 
       ZStack {
         Image(.logo)
@@ -48,30 +29,8 @@ struct TopControls: View {
       }
       .frame(maxWidth: .infinity)
 
-      VStack {
-        ScoreText(game.score.formatted(.number))
-          .foregroundStyle(Color(white: 0.3))
-
-        ZStack {
-          if game.score == game.highScore {
-            ScoreText("HIGH SCORE")
-              .transition(.asymmetric(
-                insertion: .opacity.combined(with: .scale),
-                removal: .identity))
-          } else {
-            ScoreText(game.highScore.formatted(.number))
-          }
-        }
-        .foregroundStyle(Color(white: 0.7))
-        .scaleEffect(0.8)
-        .animation(
-          .bouncy(duration: 0.8, extraBounce: 0.4),
-          value: game.score == game.highScore)
-        // Ensure we don't do a bouncy animation after losing
-        // and resetting the current score
-        .id(ObjectIdentifier(game))
-      }
-      .frame(maxWidth: .infinity)
+      score
+        .frame(maxWidth: .infinity)
     }
   }
 
@@ -80,6 +39,55 @@ struct TopControls: View {
   private var undoButtonEnabled: Bool {
     game.canUndoLastMove
       && !presentSettingsOverlay
+  }
+
+  private var buttons: some View {
+    VStack(spacing: 20) {
+      Button {
+        presentSettingsOverlay.toggle()
+      } label: {
+        HamburgerButton(isOpen: presentSettingsOverlay)
+          .frame(width: 35, height: 30)
+          .foregroundStyle(Color(white: 0.7))
+      }
+
+      Button {
+        game.undoLastMove()
+      } label: {
+        Image(systemName: "arrow.uturn.backward.circle.fill")
+          .font(.system(size: 30))
+          .foregroundStyle(Color(white: 0.8))
+      }
+      .disabled(!undoButtonEnabled)
+      .opacity(undoButtonEnabled ? 1.0 : 0.3)
+      .animation(.linear(duration: 0.25), value: undoButtonEnabled)
+    }
+  }
+
+  private var score: some View {
+    VStack {
+      ScoreText(game.score.formatted(.number))
+        .foregroundStyle(Color(white: 0.3))
+
+      ZStack {
+        if game.score == game.highScore {
+          ScoreText("HIGH SCORE")
+            .transition(.asymmetric(
+              insertion: .opacity.combined(with: .scale),
+              removal: .identity))
+        } else {
+          ScoreText(game.highScore.formatted(.number))
+        }
+      }
+      .foregroundStyle(Color(white: 0.7))
+      .scaleEffect(0.8)
+      .animation(
+        .bouncy(duration: 0.8, extraBounce: 0.4),
+        value: game.score == game.highScore)
+      // Ensure we don't do a bouncy animation after losing
+      // and resetting the current score
+      .id(ObjectIdentifier(game))
+    }
   }
 
 }

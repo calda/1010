@@ -27,6 +27,7 @@ enum GameCenterManager {
 
   /// Records the game's final score and submits it to the high score leaderboard
   static func recordFinalScore(_ score: Int) {
+    #if !targetEnvironment(simulator)
     Task {
       try await GKLeaderboard.submitScore(
         score,
@@ -34,10 +35,12 @@ enum GameCenterManager {
         player: GKLocalPlayer.local,
         leaderboardIDs: [Leaderboard.highScore.rawValue])
     }
+    #endif
   }
 
   /// Reports the given achievement as being achieved
   static func report(_ achievement: Achievement) {
+    #if !targetEnvironment(simulator)
     Task {
       let achievement = GKAchievement(
         identifier: achievement.rawValue,
@@ -51,6 +54,7 @@ enum GameCenterManager {
         print("Failed to report achievement")
       }
     }
+    #endif
   }
 
   static func displayLeaderboards() {

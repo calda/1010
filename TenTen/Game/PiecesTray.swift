@@ -125,6 +125,14 @@ struct DraggablePieceView: View {
       // is presented, or it could be possible to continue dragging the piece underneath
       // the game over sheet.
       .disabled(showingGameOverScreen)
+      // To avoid race conditions when placing a piece immediately after performing an undo,
+      // cancel any active drag gesture when triggering an undo.
+      .disabled(game.unplacedPiece != nil)
+      .onChange(of: game.unplacedPiece != nil) { _, performingUndo in
+        if performingUndo {
+          resetDragState(velocityMagnitude: 0)
+        }
+      }
   }
 
   // MARK: Private

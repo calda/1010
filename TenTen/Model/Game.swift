@@ -158,6 +158,9 @@ final class Game: Codable {
       // briefly rendered on the board, and we won't get the expected removal animation.
       DispatchQueue.main.asyncAfter_syncInUnitTests(deadline: .now() + 0.025) {
         self.clearFilledRows(placedPiece: piece, placedLocation: point)
+
+        // If an undo action was queued because of this active piece animation, trigger it now.
+        self.performPendingUndoIfNecessary()
       }
     }
   }
@@ -177,7 +180,7 @@ final class Game: Codable {
 
     for (scoreGoal, achievement) in scoreAchievements {
       if score >= scoreGoal, !achievements.contains(achievement) {
-        report(achievement)
+        awardAchievement(achievement)
       }
     }
 
@@ -228,11 +231,11 @@ final class Game: Codable {
 
     // Award achievements for randomly getting all 3x3s or 1x1s
     if availablePieces.allSatisfy({ $0?.piece == .threeByThree }) {
-      report(.allThreeByThrees)
+      awardAchievement(.allThreeByThrees)
     }
 
     if availablePieces.allSatisfy({ $0?.piece == .oneByOne }) {
-      report(.allOneByOnes)
+      awardAchievement(.allOneByOnes)
     }
   }
 
@@ -302,12 +305,12 @@ final class Game: Codable {
 
     // Award an achievement after clearing the entire board
     if clears >= 1, tiles.allPoints.allSatisfy({ tiles[$0].isEmpty }) {
-      report(.clearEntireBoard)
+      awardAchievement(.clearEntireBoard)
     }
 
     // Award an achievement after clearing 6 rows/columns at once with a 3x3 piece
     if clears == 6 {
-      report(.sixClears)
+      awardAchievement(.sixClears)
     }
 
     // Store the delays for the cascade animation, and then clear them after the animations start.
@@ -361,9 +364,10 @@ final class Game: Codable {
 
   /// Restores the most recent undo snapshot and removes it from the undo stack if permitted
   func undoLastMove() {
-    // If there's already an active undo animation, queue this undo to be handled
-    // after that animation ends.
-    guard unplacedPiece == nil else {
+    // If there's already an active piece animation, queue this undo to be handled
+    // after that animation ends. This is supported so that tapping the undo button
+    // multiple times in quick succession works as expected.
+    guard unplacedPiece == nil, placedPiece == nil else {
       pendingUndoCount += 1
       return
     }
@@ -389,14 +393,11 @@ final class Game: Codable {
     let animateUnplacedPiece = {
       // Ensure the unplaced piece anchor coexists with the draggable piece for a moment
       // so the matched geometry effect animation can play.
-      DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [self] in
+      DispatchQueue.main.asyncAfter_syncInUnitTests(deadline: .now() + 0.05) { [self] in
         unplacedPiece = nil
 
         // Now that the undo animation is complete, trigger any pending undo
-        if pendingUndoCount > 1 {
-          pendingUndoCount -= 1
-          undoLastMove()
-        }
+        performPendingUndoIfNecessary()
       }
     }
 
@@ -415,7 +416,7 @@ final class Game: Codable {
       unplacedPiece?.hidden = true
 
       // Play the piece unplace animation after the cleared tiles animate back in
-      DispatchQueue.main.asyncAfter(deadline: .now() + 0.325) {
+      DispatchQueue.main.asyncAfter_syncInUnitTests(deadline: .now() + 0.325) {
         // Unplace the piece tiles that were added temporarily
         self.tiles = restoredSnapshot.tiles
 
@@ -426,6 +427,14 @@ final class Game: Codable {
 
     else {
       animateUnplacedPiece()
+    }
+  }
+
+  /// Performs any pending undo action
+  func performPendingUndoIfNecessary() {
+    if pendingUndoCount > 1 {
+      pendingUndoCount -= 1
+      undoLastMove()
     }
   }
 
@@ -446,7 +455,7 @@ final class Game: Codable {
   /// The number of undo actions that are pending because another undo is already animating
   private var pendingUndoCount = 0
 
-  private func report(_ achievement: Achievement) {
+  private func awardAchievement(_ achievement: Achievement) {
     guard !achievements.contains(achievement) else { return }
     achievements.append(achievement)
     GameCenterManager.report(achievement)
