@@ -294,3 +294,10 @@ extension Piece {
       [1, 1, 1],
     ])
 }
+
+// MARK: - Powerup
+
+enum Powerup: String, CaseIterable, Codable {
+  case bonusPiece
+  case deletePiece
+}

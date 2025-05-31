@@ -45,11 +45,17 @@ final class Game: Codable {
 
     tiles = try container.decode([[Tile]].self, forKey: .tiles)
     availablePieces = try container.decode([RandomPiece?].self, forKey: .availablePieces)
+    bonusPiece = try? container.decodeIfPresent(RandomPiece.self, forKey: .bonusPiece)
     startDate = try container.decode(Date.self, forKey: .startDate)
 
     achievements = (try? container.decodeIfPresent([Achievement].self, forKey: .achievements)) ?? []
     undoHistory = (try? container.decode([UndoSnapshot].self, forKey: .undoHistory)) ?? []
     isHighScore = (try? container.decode(Bool.self, forKey: .isHighScore)) ?? (highScore <= score)
+    powerupPosition = try? container.decodeIfPresent(Point.self, forKey: .powerupPosition)
+    powerupTurnsRemaining = (try? container.decode(Int.self, forKey: .powerupTurnsRemaining)) ?? 0
+    lastPowerupScore = (try? container.decode(Int.self, forKey: .lastPowerupScore)) ?? 0
+    moveCount = (try? container.decode(Int.self, forKey: .moveCount)) ?? 0
+    powerups = (try? container.decode([Powerup: Int].self, forKey: .powerups)) ?? [:]
   }
 
   // MARK: Internal
@@ -73,11 +79,26 @@ final class Game: Codable {
   /// Three slots of randomly generated pieces that can be dragged to the board
   private(set) var availablePieces: [RandomPiece?]
 
+  /// Bonus 1x1 piece available from powerup (separate from the 3 main pieces)
+  private(set) var bonusPiece: RandomPiece?
+
   /// Achievements scored this game
   private(set) var achievements: [Achievement]
 
   /// Previous game states that can be restored
   private(set) var undoHistory: [UndoSnapshot]
+
+  /// Active powerup position on the board (nil if no powerup)
+  private(set) var powerupPosition: Point?
+
+  /// Number of turns remaining to collect the powerup
+  private(set) var powerupTurnsRemaining = 0
+
+  /// Last score when powerup was spawned (used to track 500-point intervals)
+  private(set) var lastPowerupScore = 0
+
+  /// Inventory of collected powerups
+  private(set) var powerups: [Powerup: Int] = [:]
 
   /// The piece that has just been selected and placed on the board
   private(set) var placedPiece: (piece: RandomPiece, targetTile: Point, dragDecelerationAnimation: Animation?)?
@@ -88,11 +109,24 @@ final class Game: Codable {
   /// Animations for when pieces should be removed from the board
   private(set) var tileAnimations = [Point: Animation]()
 
+  /// Number of moves made (pieces placed) - used to track powerup timer
+  private(set) var moveCount: Int = 0
+
   /// Whether or not there is a playable move based on the available pieces
   var hasPlayableMove: Bool {
+    // Check available pieces
     for availablePiece in availablePieces.compactMap({ $0?.piece }) {
       for tile in tiles.allPoints {
         if canAddPiece(availablePiece, at: tile) {
+          return true
+        }
+      }
+    }
+
+    // Check bonus piece
+    if let bonus = bonusPiece {
+      for tile in tiles.allPoints {
+        if canAddPiece(bonus.piece, at: tile) {
           return true
         }
       }
@@ -142,6 +176,8 @@ final class Game: Codable {
     recordUndoSnapshot(didPlacePiece: randomPiece, at: point)
 
     increaseScore(by: piece.points)
+    moveCount += 1
+    decrementPowerupTimer()
     placedPiece = (piece: randomPiece, targetTile: point, dragDecelerationAnimation: dragDecelerationAnimation)
 
     // Wait for the drag deceleration animation (0.125s) to finish.
@@ -200,6 +236,9 @@ final class Game: Codable {
         }
       }
     }
+
+    // Spawn powerup every 500 points
+    spawnPowerupIfNeeded()
   }
 
   /// Adds the piece to the given tile on the board
@@ -307,6 +346,9 @@ final class Game: Codable {
       }
     }
 
+    // Check if powerup should be collected before clearing tiles
+    checkPowerupCollection(clearedTiles: Set(tilesToClear.keys))
+
     for tileToClear in tilesToClear.keys {
       tiles[tileToClear] = .empty
     }
@@ -360,8 +402,14 @@ final class Game: Codable {
       score: score,
       tiles: tiles,
       availablePieces: availablePieces,
+      bonusPiece: bonusPiece,
       placedPiece: placedPiece,
-      placedPiecePoint: point)
+      placedPiecePoint: point,
+      powerupPosition: powerupPosition,
+      powerupTurnsRemaining: powerupTurnsRemaining,
+      lastPowerupScore: lastPowerupScore,
+      moveCount: moveCount,
+      powerups: powerups)
 
     undoHistory.insert(snapshot, at: 0)
 
@@ -458,6 +506,97 @@ final class Game: Codable {
     }
   }
 
+  /// Spawns a powerup at a random empty tile if score has increased by 500 points
+  func spawnPowerupIfNeeded() {
+    guard powerupPosition == nil else { return }
+    
+    let scoresSince = score - lastPowerupScore
+    guard scoresSince >= 10 else { return }
+    //guard scoresSince >= 500 else { return }
+    
+    let emptyTiles = tiles.allPoints.filter { tiles[$0].isEmpty }
+    guard !emptyTiles.isEmpty else { return }
+    
+    let randomTile = emptyTiles.randomElement(seed: score + startDate.hashValue)
+    powerupPosition = randomTile
+    powerupTurnsRemaining = 5
+    lastPowerupScore = score
+  }
+
+  /// Decrements the powerup timer and removes powerup if time expires
+  func decrementPowerupTimer() {
+    guard powerupPosition != nil else { return }
+    
+    powerupTurnsRemaining -= 1
+    if powerupTurnsRemaining <= 0 {
+      powerupPosition = nil
+    }
+  }
+
+  /// Checks if powerup should be collected when clearing rows/columns
+  func checkPowerupCollection(clearedTiles: Set<Point>) {
+    guard let powerupPos = powerupPosition else { return }
+    
+    if clearedTiles.contains(powerupPos) {
+      // Powerup collected! Award a random powerup and remove powerup from board
+      let randomPowerup = Powerup.allCases.randomElement(seed: score + startDate.hashValue)
+      awardPowerup(randomPowerup)
+      powerupPosition = nil
+      powerupTurnsRemaining = 0
+    }
+  }
+
+  /// Awards a powerup to the player's inventory
+  func awardPowerup(_ powerupType: Powerup) {
+    powerups[powerupType, default: 0] += 1
+  }
+
+  /// Uses a powerup from the player's inventory
+  func usePowerup(_ powerupType: Powerup) -> Bool {
+    guard let count = powerups[powerupType], count > 0 else { return false }
+    powerups[powerupType] = count - 1
+    return true
+  }
+
+  /// Returns the count of a specific powerup in inventory
+  func powerupCount(_ powerupType: Powerup) -> Int {
+    return powerups[powerupType] ?? 0
+  }
+
+  /// Uses the bonus piece powerup to create a 1x1 piece
+  func useBonusPiecePowerup() -> Bool {
+    guard usePowerup(.bonusPiece) else { return false }
+    bonusPiece = RandomPiece(id: UUID(), piece: .oneByOne)
+    return true
+  }
+
+  /// Uses the delete piece powerup to remove a piece from the available pieces
+  func useDeletePiecePowerup(slot: Int) -> Bool {
+    guard usePowerup(.deletePiece) else { return false }
+    guard slot >= 0 && slot < availablePieces.count else { return false }
+    
+    removePiece(inSlot: slot)
+    reloadAvailablePiecesIfNeeded()
+    return true
+  }
+
+  /// Places the bonus piece on the board
+  func addBonusPiece(at point: Point) {
+    guard let bonus = bonusPiece, canAddPiece(bonus.piece, at: point) else { return }
+    
+    increaseScore(by: bonus.piece.points)
+    moveCount += 1
+    decrementPowerupTimer()
+    
+    addPiece(bonus.piece, at: point)
+    bonusPiece = nil
+    
+    // Clear filled rows after placing bonus piece
+    DispatchQueue.main.asyncAfter_syncInUnitTests(deadline: .now() + 0.025) {
+      self.clearFilledRows(placedPiece: bonus.piece, placedLocation: point)
+    }
+  }
+
   // MARK: Private
 
   /// The number of undo actions that are pending because another undo is already animating
@@ -477,10 +616,16 @@ extension Game {
     case highScore
     case tiles
     case availablePieces
+    case bonusPiece
     case achievements
     case startDate
     case undoHistory
     case isHighScore
+    case powerupPosition
+    case powerupTurnsRemaining
+    case lastPowerupScore
+    case moveCount
+    case powerups
   }
 
   var data: Data {
@@ -497,10 +642,16 @@ extension Game {
     try container.encode(highScore, forKey: .highScore)
     try container.encode(tiles, forKey: .tiles)
     try container.encode(availablePieces, forKey: .availablePieces)
+    try container.encode(bonusPiece, forKey: .bonusPiece)
     try container.encode(achievements, forKey: .achievements)
     try container.encode(startDate, forKey: .startDate)
     try container.encode(undoHistory, forKey: .undoHistory)
     try container.encode(isHighScore, forKey: .isHighScore)
+    try container.encode(powerupPosition, forKey: .powerupPosition)
+    try container.encode(powerupTurnsRemaining, forKey: .powerupTurnsRemaining)
+    try container.encode(lastPowerupScore, forKey: .lastPowerupScore)
+    try container.encode(moveCount, forKey: .moveCount)
+    try container.encode(powerups, forKey: .powerups)
   }
 }
 
@@ -527,12 +678,20 @@ struct UndoSnapshot: Codable {
   let score: Int
   let tiles: [[Tile]]
   let availablePieces: [RandomPiece?]
+  let bonusPiece: RandomPiece?
 
   /// The piece that was placed when this snapshot was created
   let placedPiece: RandomPiece
 
   /// The point that `placedPiece` was placed at on the board
   let placedPiecePoint: Point
+
+  /// Powerup state when snapshot was created
+  let powerupPosition: Point?
+  let powerupTurnsRemaining: Int
+  let lastPowerupScore: Int
+  let moveCount: Int
+  let powerups: [Powerup: Int]
 
   /// Whether or not this move can be undone during normal gameplay.
   /// We don't allow undoing a move after the random pieces are regenerated.
@@ -547,6 +706,12 @@ extension Game {
     score = undoSnapshot.score
     tiles = undoSnapshot.tiles
     availablePieces = undoSnapshot.availablePieces
+    bonusPiece = undoSnapshot.bonusPiece
+    powerupPosition = undoSnapshot.powerupPosition
+    powerupTurnsRemaining = undoSnapshot.powerupTurnsRemaining
+    lastPowerupScore = undoSnapshot.lastPowerupScore
+    moveCount = undoSnapshot.moveCount
+    powerups = undoSnapshot.powerups
   }
 }
 

@@ -402,6 +402,110 @@ struct TenTenTests {
     }
   }
 
+  @Test
+  func powerupTimerDecrementsWithMoves() {
+    let game = Game()
+    game.updateScore(to: 500)
+    #expect(game.powerupPosition != nil)
+    #expect(game.powerupTurnsRemaining == 5)
+
+    // Place pieces to decrement timer
+    game.updateAvailablePieces(to: [.oneByOne, .oneByOne, .oneByOne])
+    
+    game.addPiece(inSlot: 0, at: Point(x: 0, y: 0))
+    #expect(game.powerupTurnsRemaining == 4)
+    #expect(game.powerupPosition != nil)
+
+    game.addPiece(inSlot: 1, at: Point(x: 1, y: 0))
+    #expect(game.powerupTurnsRemaining == 3)
+    #expect(game.powerupPosition != nil)
+
+    game.addPiece(inSlot: 2, at: Point(x: 2, y: 0))
+    #expect(game.powerupTurnsRemaining == 2)
+    #expect(game.powerupPosition != nil)
+
+    game.updateAvailablePieces(to: [.oneByOne, .oneByOne, .oneByOne])
+    
+    game.addPiece(inSlot: 0, at: Point(x: 3, y: 0))
+    #expect(game.powerupTurnsRemaining == 1)
+    #expect(game.powerupPosition != nil)
+
+    game.addPiece(inSlot: 1, at: Point(x: 4, y: 0))
+    #expect(game.powerupTurnsRemaining == 0)
+    #expect(game.powerupPosition == nil) // Powerup expires
+  }
+
+  @Test
+  func powerupCollectionWhenRowCleared() {
+    let game = Game()
+    game.updateScore(to: 500)
+    
+    let powerupPosition = game.powerupPosition!
+    let initialScore = game.score
+    
+    // Fill the row containing the powerup except for one spot
+    for x in 0..<10 {
+      if Point(x: x, y: powerupPosition.y) != powerupPosition {
+        game.addPiece(.oneByOne, at: Point(x: x, y: powerupPosition.y))
+      }
+    }
+    
+    // Place the final piece to complete the row
+    game.addPiece(.oneByOne, at: powerupPosition)
+    game.clearFilledRows(placedPiece: .oneByOne, placedLocation: powerupPosition)
+    
+    // Powerup should be collected and bonus points awarded
+    #expect(game.powerupPosition == nil)
+    #expect(game.powerupTurnsRemaining == 0)
+    #expect(game.score > initialScore + 10) // 10 points for pieces + 100 bonus
+  }
+
+  @Test
+  func powerupCollectionWhenColumnCleared() {
+    let game = Game()
+    game.updateScore(to: 500)
+    
+    let powerupPosition = game.powerupPosition!
+    let initialScore = game.score
+    
+    // Fill the column containing the powerup except for one spot
+    for y in 0..<10 {
+      if Point(x: powerupPosition.x, y: y) != powerupPosition {
+        game.addPiece(.oneByOne, at: Point(x: powerupPosition.x, y: y))
+      }
+    }
+    
+    // Place the final piece to complete the column
+    game.addPiece(.oneByOne, at: powerupPosition)
+    game.clearFilledRows(placedPiece: .oneByOne, placedLocation: powerupPosition)
+    
+    // Powerup should be collected and bonus points awarded
+    #expect(game.powerupPosition == nil)
+    #expect(game.powerupTurnsRemaining == 0)
+    #expect(game.score > initialScore + 10) // 10 points for pieces + 100 bonus
+  }
+
+  @Test
+  func powerupStatePreservedInUndoSnapshot() {
+    let game = Game()
+    game.updateScore(to: 500)
+    game.updateAvailablePieces(to: [.oneByOne, .oneByOne, .oneByOne])
+    
+    let originalPowerupPosition = game.powerupPosition!
+    let originalTurns = game.powerupTurnsRemaining
+    
+    // Place a piece (this creates an undo snapshot and decrements powerup timer)
+    game.addPiece(inSlot: 0, at: Point(x: 0, y: 0))
+    #expect(game.powerupTurnsRemaining == originalTurns - 1)
+    
+    // Undo the move
+    game.undoLastMove()
+    
+    // Powerup state should be restored
+    #expect(game.powerupPosition == originalPowerupPosition)
+    #expect(game.powerupTurnsRemaining == originalTurns)
+  }
+
 }
 
 // MARK: Helpers

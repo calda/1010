@@ -43,7 +43,8 @@ struct BoardView: View {
               color: tile.color?.color,
               emptyTileColor: Color(white: 0.9),
               hidden: showingSettingsOverlay,
-              animation: game.tileAnimations[point])
+              animation: game.tileAnimations[point],
+              showPowerup: game.powerupPosition == point)
               .onGeometryChange(in: .named("GameView")) { tileFrame in
                 boardLayout.tileFrames[point] = tileFrame
               }
@@ -113,6 +114,7 @@ struct TileView: View {
   var emptyTileColor: Color?
   var hidden = false
   var animation: Animation?
+  var showPowerup = false
 
   var body: some View {
     ZStack {
@@ -134,13 +136,47 @@ struct TileView: View {
           // even when the removal animation is playing.
           .zIndex(10)
       }
+
+      if showPowerup {
+        PowerupStarView(scale: scale)
+          .transition(.scale)
+          .zIndex(20)
+      }
     }
     .animation(animation, value: isFilled)
+    .animation(.spring(duration: 0.2), value: showPowerup)
   }
 
   var isFilled: Bool {
     color != nil
   }
+}
+
+// MARK: - PowerupStarView
+
+struct PowerupStarView: View {
+  let scale: Double
+
+  var body: some View {
+    // Bright star with gradient
+    Image(systemName: "star.fill")
+      .font(.system(size: 20 * scale, weight: .bold))
+      .foregroundStyle(
+        LinearGradient(
+          colors: [.yellow, .orange],
+          startPoint: .topLeading,
+          endPoint: .bottomTrailing
+        )
+      )
+      .shadow(color: .black.opacity(0.5), radius: 1 * scale)
+      .scaleEffect(pulsing ? 1.2 : 1.0)
+      .animation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true), value: pulsing)
+    .onAppear {
+      pulsing = true
+    }
+  }
+
+  @State private var pulsing = false
 }
 
 // MARK: - SingleTile
