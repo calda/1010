@@ -36,6 +36,10 @@ struct GameView: View {
       PiecesTray()
         .padding(.bottom, 20)
     }
+    .overlay {
+      PowerupOverlay()
+        .animation(.spring(response: 0.6, dampingFraction: 0.7), value: game.powerupPosition)
+    }
     .coordinateSpace(.named("GameView"))
     .environment(\.game, game)
     .environment(\.boardLayout, boardLayout)

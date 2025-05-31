@@ -43,8 +43,7 @@ struct BoardView: View {
               color: tile.color?.color,
               emptyTileColor: Color(white: 0.9),
               hidden: showingSettingsOverlay,
-              animation: game.tileAnimations[point],
-              showPowerup: game.powerupPosition == point)
+              animation: game.tileAnimations[point])
               .onGeometryChange(in: .named("GameView")) { tileFrame in
                 boardLayout.tileFrames[point] = tileFrame
               }
@@ -73,6 +72,28 @@ struct BoardView: View {
         .offset(boardLayout.offsetInBoard(of: unplacedPiece.tile))
     }
   }
+}
+
+struct PowerupOverlay: View {
+  var body: some View {
+    ForEach(game.tiles.allPoints, id: \.self) { point in
+      let tileFrame = boardLayout.tileFrames[point] ?? .zero
+      let powerupVisible = game.powerupPosition == point && !showingSettingsOverlay
+      
+      ZStack {
+        if powerupVisible {
+          PowerupStarView(scale: 1.0)
+            .transition(.scale.combined(with: .opacity))
+        }
+      }
+      .position(x: tileFrame.midX, y: tileFrame.midY)
+      .animation(.spring, value: powerupVisible)
+    }
+  }
+  
+  @Environment(\.game) private var game
+  @Environment(\.boardLayout) private var boardLayout
+  @Environment(\.showingSettingsOverlay) private var showingSettingsOverlay
 }
 
 // MARK: - PieceView
@@ -114,7 +135,6 @@ struct TileView: View {
   var emptyTileColor: Color?
   var hidden = false
   var animation: Animation?
-  var showPowerup = false
 
   var body: some View {
     ZStack {
@@ -136,15 +156,8 @@ struct TileView: View {
           // even when the removal animation is playing.
           .zIndex(10)
       }
-
-      if showPowerup {
-        PowerupStarView(scale: scale)
-          .transition(.scale)
-          .zIndex(20)
-      }
     }
     .animation(animation, value: isFilled)
-    .animation(.spring(duration: 0.2), value: showPowerup)
   }
 
   var isFilled: Bool {
@@ -156,21 +169,22 @@ struct TileView: View {
 
 struct PowerupStarView: View {
   let scale: Double
-
+  
   var body: some View {
-    // Bright star with gradient
-    Image(systemName: "star.fill")
-      .font(.system(size: 20 * scale, weight: .bold))
-      .foregroundStyle(
-        LinearGradient(
-          colors: [.yellow, .orange],
-          startPoint: .topLeading,
-          endPoint: .bottomTrailing
+    ZStack {
+      Image(systemName: "star.fill")
+        .font(.system(size: 20 * scale, weight: .bold))
+        .foregroundStyle(
+          LinearGradient(
+            colors: [.yellow, .orange],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+          )
         )
-      )
-      .shadow(color: .black.opacity(0.5), radius: 1 * scale)
-      .scaleEffect(pulsing ? 1.2 : 1.0)
-      .animation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true), value: pulsing)
+        .shadow(color: .black.opacity(0.5), radius: 1 * scale)
+    }
+    .scaleEffect(pulsing ? 1.2 : 1.0)
+    .animation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true), value: pulsing)
     .onAppear {
       pulsing = true
     }
