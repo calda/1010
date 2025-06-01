@@ -145,6 +145,9 @@ struct PowerupButton: View {
           .frame(width: 50, height: 50)
       }
     }
+    .opacity(showingSettingsOverlay ? 0 : 1)
+    .scaleEffect(showingSettingsOverlay ? 0 : 1)
+    .animation(.spring, value: showingSettingsOverlay)
   }
 
   var count: Int {
@@ -156,6 +159,7 @@ struct PowerupButton: View {
   @State private var badgeVisible = false
 
   @Environment(\.game) private var game
+  @Environment(\.showingSettingsOverlay) private var showingSettingsOverlay
 
   private var isEnabled: Bool {
     count > 0
