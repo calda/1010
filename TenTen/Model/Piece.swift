@@ -295,6 +295,13 @@ extension Piece {
     ])
 }
 
+// MARK: - DraggablePiece
+
+enum DraggablePiece: Hashable, Codable {
+  case slot(Int)
+  case bonusPiece
+}
+
 // MARK: - Powerup
 
 enum Powerup: String, CaseIterable, Codable {

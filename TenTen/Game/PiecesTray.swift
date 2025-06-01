@@ -47,7 +47,7 @@ struct PieceSlot: View {
   var body: some View {
     ZStack {
       if let piece {
-        DraggablePieceView(piece: piece.piece, id: piece.id, slot: slot)
+        DraggablePieceView(piece: piece.piece, id: piece.id, draggablePiece: .slot(slot))
           .frame(maxWidth: .infinity, maxHeight: .infinity)
           .transition(.asymmetric(
             insertion: .scale.combined(with: .opacity),
@@ -83,7 +83,7 @@ struct DraggablePieceView: View {
 
   let piece: Piece
   let id: UUID
-  let slot: Int
+  let draggablePiece: DraggablePiece
 
   var body: some View {
     PieceView(
@@ -91,16 +91,16 @@ struct DraggablePieceView: View {
       tileSize: boardLayout.boardTileSize * defaultScale,
       scale: defaultScale)
       .matchedGeometryEffect(
-        id: game.placedPiece?.piece.id == id ? "placed piece" : "\(slot)",
+        id: game.placedPiece?.piece.id == id ? "placed piece" : draggablePieceIdentifier,
         in: placedPieceNamespace(),
         anchor: .topLeading,
         isSource: false)
       .matchedGeometryEffect(
-        id: game.unplacedPiece?.piece.id == id ? "unplaced piece" : "\(slot)",
+        id: game.unplacedPiece?.piece.id == id ? "unplaced piece" : draggablePieceIdentifier,
         in: placedPieceNamespace(),
         anchor: .topLeading,
         isSource: false)
-      .opacity(game.unplacedPiece?.piece.id == id && game.unplacedPiece?.hidden == true ? 0 : 1)
+      .opacity(opacity)
       // Track the view's frame in the global coordinate space
       .onGeometryChange(in: .named("GameView")) { frame in
         self.frame = frame
@@ -115,7 +115,13 @@ struct DraggablePieceView: View {
       .gesture(game.isInDeleteMode ? nil : dragGesture)
       .onTapGesture {
         if game.isInDeleteMode {
-          game.deletePieceInSlot(slot)
+          switch draggablePiece {
+          case .slot(let slot):
+            game.deletePieceInSlot(slot)
+          case .bonusPiece:
+            // Bonus pieces can't be deleted in delete mode
+            break
+          }
         }
       }
       // Add jiggle animation when in delete mode
@@ -165,6 +171,16 @@ struct DraggablePieceView: View {
   /// the fact that there is also some additional spacing.
   private let defaultScale: Double = 3 / 5
 
+  /// Unique identifier for this draggable piece for matched geometry effects
+  private var draggablePieceIdentifier: String {
+    switch draggablePiece {
+    case .slot(let slot):
+      return "\(slot)"
+    case .bonusPiece:
+      return "bonusPiece"
+    }
+  }
+
   /// The current scale of this piece. When selected, scale the
   /// piece up by the inverse of `defaultScale` so the piece's
   /// tiles are the same size as the board tiles.
@@ -174,6 +190,23 @@ struct DraggablePieceView: View {
     } else {
       1
     }
+  }
+
+  /// The opacity of this piece. Bonus pieces start invisible and become visible when dragged.
+  /// Regular pieces are always visible unless hidden during undo.
+  private var opacity: Double {
+    // Handle unplaced pieces (during undo)
+    if game.unplacedPiece?.piece.id == id && game.unplacedPiece?.hidden == true {
+      return 0
+    }
+    
+    // Handle bonus pieces
+    if case .bonusPiece = draggablePiece {
+      return selected ? 1 : 0  // Invisible until dragged
+    }
+    
+    // Regular slot pieces are always visible
+    return 1
   }
 
   private var dragGesture: some Gesture {
@@ -229,7 +262,7 @@ struct DraggablePieceView: View {
           duration: 0.125,
           initialVelocity: velocityMagnitude / 50)
 
-        game.addPiece(inSlot: slot, at: point, dragDecelerationAnimation: dragDecelerationAnimation)
+        game.addPiece(from: draggablePiece, at: point, dragDecelerationAnimation: dragDecelerationAnimation)
       }
   }
 

@@ -45,7 +45,6 @@ final class Game: Codable {
 
     tiles = try container.decode([[Tile]].self, forKey: .tiles)
     availablePieces = try container.decode([RandomPiece?].self, forKey: .availablePieces)
-    bonusPiece = try? container.decodeIfPresent(RandomPiece.self, forKey: .bonusPiece)
     startDate = try container.decode(Date.self, forKey: .startDate)
 
     achievements = (try? container.decodeIfPresent([Achievement].self, forKey: .achievements)) ?? []
@@ -80,7 +79,7 @@ final class Game: Codable {
   private(set) var availablePieces: [RandomPiece?]
 
   /// Bonus 1x1 piece available from powerup (separate from the 3 main pieces)
-  private(set) var bonusPiece: RandomPiece?
+  let bonusPiece = RandomPiece(id: UUID(), piece: .oneByOne)
 
   /// Achievements scored this game
   private(set) var achievements: [Achievement]
@@ -117,19 +116,14 @@ final class Game: Codable {
 
   /// Whether or not there is a playable move based on the available pieces
   var hasPlayableMove: Bool {
-    // Check available pieces
-    for availablePiece in availablePieces.compactMap({ $0?.piece }) {
+    var allPieces = availablePieces
+    if (powerups[.bonusPiece] ?? 0) > 0 {
+      allPieces.append(bonusPiece)
+    }
+    
+    for availablePiece in allPieces.compactMap({ $0?.piece }) {
       for tile in tiles.allPoints {
         if canAddPiece(availablePiece, at: tile) {
-          return true
-        }
-      }
-    }
-
-    // Check bonus piece
-    if let bonus = bonusPiece {
-      for tile in tiles.allPoints {
-        if canAddPiece(bonus.piece, at: tile) {
           return true
         }
       }
@@ -168,15 +162,25 @@ final class Game: Codable {
     return true
   }
 
-  /// Adds the piece in the given slot to the board at the given point
-  func addPiece(inSlot slot: Int, at point: Point, dragDecelerationAnimation: Animation? = nil) {
-    guard
-      let randomPiece = availablePieces[slot],
-      canAddPiece(randomPiece.piece, at: point)
-    else { return }
+  /// Adds the piece from the given draggable piece to the board at the given point
+  func addPiece(from draggablePiece: DraggablePiece, at point: Point, dragDecelerationAnimation: Animation? = nil) {
+    let randomPiece: RandomPiece
+    
+    switch draggablePiece {
+    case .slot(let slot):
+      guard
+        let piece = availablePieces[slot],
+        canAddPiece(piece.piece, at: point)
+      else { return }
+      randomPiece = piece
+      
+    case .bonusPiece:
+      guard canAddPiece(bonusPiece.piece, at: point) else { return }
+      randomPiece = bonusPiece
+    }
 
     let piece = randomPiece.piece
-    recordUndoSnapshot(didPlacePiece: randomPiece, at: point)
+    recordUndoSnapshot(didPlacePiece: randomPiece, at: point, fromDraggablePiece: draggablePiece)
 
     increaseScore(by: piece.points)
     moveCount += 1
@@ -188,7 +192,7 @@ final class Game: Codable {
       // Use `withAnimation` to avoid an unexpected animation when
       // clearing the placed piece from its slot.
       withAnimation(nil) {
-        removePiece(inSlot: slot)
+        removePiece(draggablePiece)
       }
 
       placedPiece = nil
@@ -259,9 +263,14 @@ final class Game: Codable {
     }
   }
 
-  /// Removes the piece in the given spot after it's been played
-  func removePiece(inSlot slot: Int) {
-    availablePieces[slot] = nil
+  /// Removes the piece from the given draggable piece after it's been played
+  func removePiece(_ draggablePiece: DraggablePiece) {
+    switch draggablePiece {
+    case .slot(let slot):
+      availablePieces[slot] = nil
+    case .bonusPiece:
+      usePowerup(.bonusPiece)
+    }
   }
 
   /// Reloads the set of available pieces if all slots are empty
@@ -396,7 +405,7 @@ final class Game: Codable {
   }
 
   /// Records an entry in the undo stack that can be restored later.
-  func recordUndoSnapshot(didPlacePiece placedPiece: RandomPiece, at point: Point) {
+  func recordUndoSnapshot(didPlacePiece placedPiece: RandomPiece, at point: Point, fromDraggablePiece draggablePiece: DraggablePiece) {
     // You can't undo after receiving new random pieces (except on the game over screen)
     // so you can never undo more than three times in a row.
     let undoStackLimit = 3
@@ -408,6 +417,7 @@ final class Game: Codable {
       bonusPiece: bonusPiece,
       placedPiece: placedPiece,
       placedPiecePoint: point,
+      placedPieceSource: draggablePiece,
       powerupPosition: powerupPosition,
       powerupTurnsRemaining: powerupTurnsRemaining,
       lastPowerupScore: lastPowerupScore,
@@ -419,6 +429,21 @@ final class Game: Codable {
     while undoHistory.count > undoStackLimit {
       undoHistory.removeLast()
     }
+  }
+
+  /// Legacy method for compatibility
+  func recordUndoSnapshot(didPlacePiece placedPiece: RandomPiece, at point: Point) {
+    // Determine the draggable piece source based on which slot contains this piece
+    let draggablePiece: DraggablePiece
+    if bonusPiece.id == placedPiece.id {
+      draggablePiece = .bonusPiece
+    } else if let slotIndex = availablePieces.firstIndex(where: { $0?.id == placedPiece.id }) {
+      draggablePiece = .slot(slotIndex)
+    } else {
+      // Fallback - shouldn't happen in normal gameplay
+      draggablePiece = .slot(0)
+    }
+    recordUndoSnapshot(didPlacePiece: placedPiece, at: point, fromDraggablePiece: draggablePiece)
   }
 
   /// Restores the most recent undo snapshot and removes it from the undo stack if permitted
@@ -517,15 +542,14 @@ final class Game: Codable {
     guard powerupPosition == nil else { return }
     
     let scoresSince = score - lastPowerupScore
-    guard scoresSince >= 10 else { return } // TODO: REVERT
-    //guard scoresSince >= 500 else { return }
+    guard scoresSince >= 500 else { return }
     
     let emptyTiles = tiles.allPoints.filter { tiles[$0].isEmpty }
     guard !emptyTiles.isEmpty else { return }
     
     let randomTile = emptyTiles.randomElement(seed: score + startDate.hashValue)
     powerupPosition = randomTile
-    powerupTurnsRemaining = 20 // 5 TODO: REVERT
+    powerupTurnsRemaining = 5
     lastPowerupScore = score
   }
 
@@ -558,16 +582,10 @@ final class Game: Codable {
   }
 
   /// Uses a powerup from the player's inventory
+  @discardableResult
   func usePowerup(_ powerupType: Powerup) -> Bool {
     guard let count = powerups[powerupType], count > 0 else { return false }
     powerups[powerupType] = count - 1
-    return true
-  }
-
-  /// Uses the bonus piece powerup to create a 1x1 piece
-  func useBonusPiecePowerup() -> Bool {
-    guard usePowerup(.bonusPiece) else { return false }
-    bonusPiece = RandomPiece(id: UUID(), piece: .oneByOne)
     return true
   }
 
@@ -576,7 +594,7 @@ final class Game: Codable {
     guard usePowerup(.deletePiece) else { return false }
     guard slot >= 0 && slot < availablePieces.count else { return false }
     
-    removePiece(inSlot: slot)
+    removePiece(.slot(slot))
     reloadAvailablePiecesIfNeeded()
     return true
   }
@@ -603,7 +621,7 @@ final class Game: Codable {
     // Only consume the powerup when a piece is actually deleted
     guard usePowerup(.deletePiece) else { return }
     
-    removePiece(inSlot: slot)
+    removePiece(.slot(slot))
     reloadAvailablePiecesIfNeeded()
     exitDeleteMode()
   }
@@ -627,7 +645,6 @@ extension Game {
     case highScore
     case tiles
     case availablePieces
-    case bonusPiece
     case achievements
     case startDate
     case undoHistory
@@ -653,7 +670,7 @@ extension Game {
     try container.encode(highScore, forKey: .highScore)
     try container.encode(tiles, forKey: .tiles)
     try container.encode(availablePieces, forKey: .availablePieces)
-    try container.encode(bonusPiece, forKey: .bonusPiece)
+
     try container.encode(achievements, forKey: .achievements)
     try container.encode(startDate, forKey: .startDate)
     try container.encode(undoHistory, forKey: .undoHistory)
@@ -697,6 +714,9 @@ struct UndoSnapshot: Codable {
   /// The point that `placedPiece` was placed at on the board
   let placedPiecePoint: Point
 
+  /// The source of the placed piece (slot or bonus piece)
+  let placedPieceSource: DraggablePiece
+
   /// Powerup state when snapshot was created
   let powerupPosition: Point?
   let powerupTurnsRemaining: Int
@@ -708,7 +728,14 @@ struct UndoSnapshot: Codable {
   /// We don't allow undoing a move after the random pieces are regenerated.
   /// From the game over screen, any move can be undone.
   var canBeUndoneDuringGameplay: Bool {
-    availablePieces.count(where: { $0 != nil }) > 1
+    switch placedPieceSource {
+    case .slot:
+      // For regular pieces, check if there are still pieces available
+      availablePieces.count(where: { $0 != nil }) > 1
+    case .bonusPiece:
+      // Bonus piece moves can always be undone during gameplay
+      true
+    }
   }
 }
 
@@ -717,7 +744,6 @@ extension Game {
     score = undoSnapshot.score
     tiles = undoSnapshot.tiles
     availablePieces = undoSnapshot.availablePieces
-    bonusPiece = undoSnapshot.bonusPiece
     powerupPosition = undoSnapshot.powerupPosition
     powerupTurnsRemaining = undoSnapshot.powerupTurnsRemaining
     lastPowerupScore = undoSnapshot.lastPowerupScore

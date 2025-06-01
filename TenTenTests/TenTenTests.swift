@@ -441,7 +441,6 @@ struct TenTenTests {
     game.updateScore(to: 500)
     
     let powerupPosition = game.powerupPosition!
-    let initialScore = game.score
     
     // Fill the row containing the powerup except for one spot
     for x in 0..<10 {
@@ -454,10 +453,10 @@ struct TenTenTests {
     game.addPiece(.oneByOne, at: powerupPosition)
     game.clearFilledRows(placedPiece: .oneByOne, placedLocation: powerupPosition)
     
-    // Powerup should be collected and bonus points awarded
+    // Powerup should be collected
     #expect(game.powerupPosition == nil)
     #expect(game.powerupTurnsRemaining == 0)
-    #expect(game.score > initialScore + 10) // 10 points for pieces + 100 bonus
+    #expect(game.powerups.values.contains(where: { $0 == 1 }))
   }
 
   @Test
@@ -466,7 +465,6 @@ struct TenTenTests {
     game.updateScore(to: 500)
     
     let powerupPosition = game.powerupPosition!
-    let initialScore = game.score
     
     // Fill the column containing the powerup except for one spot
     for y in 0..<10 {
@@ -482,7 +480,7 @@ struct TenTenTests {
     // Powerup should be collected and bonus points awarded
     #expect(game.powerupPosition == nil)
     #expect(game.powerupTurnsRemaining == 0)
-    #expect(game.score > initialScore + 10) // 10 points for pieces + 100 bonus
+    #expect(game.powerups.values.contains(where: { $0 == 1 }))
   }
 
   @Test
@@ -588,12 +586,19 @@ struct TenTenTests {
     game.exitDeleteMode()
     #expect(game.powerups[.deletePiece] == 1) // Should not consume
   }
-
 }
 
 // MARK: Helpers
 
 extension Game {
+  func addPiece(inSlot slot: Int, at point: Point) {
+    addPiece(from: .slot(slot), at: point)
+  }
+  
+  func removePiece(inSlot slot: Int) {
+    removePiece(.slot(slot))
+  }
+  
   func updateScore(to score: Int) {
     increaseScore(by: score - self.score)
   }

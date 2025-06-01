@@ -99,34 +99,50 @@ struct PowerupButton: View {
   @State private var badgeVisible = false
   
   var body: some View {
-    Button(action: action) {
-      VStack(spacing: 4) {
-        ZStack {
-          Circle()
-            .fill(Color.gray.opacity(0.15))
-            .frame(width: 50, height: 50)
-          
-          Image(systemName: iconName)
-            .font(.system(size: 20, weight: .bold))
-            .foregroundColor(.gray)
-        }
-        .overlay(alignment: .bottomTrailing) {
-            Text(count.formatted(.number))
-              .font(.caption2)
-              .fontWeight(.bold)
-              .foregroundColor(.white)
-              .frame(minWidth: 18, minHeight: 18)
-              .background(Circle().fill(.blue))
-              .offset(x: 4, y: 4)
-              .scaleEffect(badgeVisible ? 1 : 0.4)
-              .opacity(badgeVisible ? 1 : 0)
-              .animation(.bouncy, value: badgeVisible)
+    ZStack {
+      Button(action: action) {
+        VStack(spacing: 4) {
+          ZStack {
+            Circle()
+              .fill(Color.gray.opacity(0.15))
+              .frame(width: 50, height: 50)
+            
+            Image(systemName: iconName)
+              .font(.system(size: 20, weight: .bold))
+              .foregroundColor(.gray)
+          }
+          .overlay(alignment: .bottomTrailing) {
+              Text(count.formatted(.number))
+                .font(.caption2)
+                .fontWeight(.bold)
+                .foregroundColor(.white)
+                .frame(minWidth: 18, minHeight: 18)
+                .background(Circle().fill(.blue))
+                .offset(x: 4, y: 4)
+                .scaleEffect(badgeVisible ? 1 : 0.4)
+                .opacity(badgeVisible ? 1 : 0)
+                .animation(.bouncy, value: badgeVisible)
+          }
         }
       }
-    }
-    .disabled(!isEnabled)
-    .onChange(of: isEnabled) { oldValue, newValue in
-      badgeVisible = newValue
+      .disabled(!isEnabled || powerupType == .bonusPiece)
+      .onChange(of: isEnabled) { oldValue, newValue in
+        DispatchQueue.main.async {
+          badgeVisible = newValue
+        }
+      }
+      .onAppear {
+        badgeVisible = isEnabled
+      }
+      // Invisible draggable bonus piece for bonus piece button
+      if powerupType == .bonusPiece, (game.powerups[.bonusPiece] ?? 0) > 0 {
+        DraggablePieceView(
+          piece: game.bonusPiece.piece,
+          id: game.bonusPiece.id,
+          draggablePiece: .bonusPiece
+        )
+        .frame(width: 50, height: 50)
+      }
     }
   }
   
@@ -143,14 +159,14 @@ struct PowerupButton: View {
   private func action() {
     switch powerupType {
     case .bonusPiece:
-      _ = game.useBonusPiecePowerup()
+      break
     case .deletePiece:
       if game.isInDeleteMode {
         // Cancel delete mode if already active
         game.exitDeleteMode()
       } else {
         // Enter delete mode
-        _ = game.enterDeleteMode()
+        game.enterDeleteMode()
       }
     }
   }
