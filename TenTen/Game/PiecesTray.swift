@@ -175,9 +175,9 @@ struct DraggablePieceView: View {
   private var draggablePieceIdentifier: String {
     switch draggablePiece {
     case .slot(let slot):
-      return "\(slot)"
+      "\(slot)"
     case .bonusPiece:
-      return "bonusPiece"
+      "bonusPiece"
     }
   }
 
@@ -196,15 +196,15 @@ struct DraggablePieceView: View {
   /// Regular pieces are always visible unless hidden during undo.
   private var opacity: Double {
     // Handle unplaced pieces (during undo)
-    if game.unplacedPiece?.piece.id == id && game.unplacedPiece?.hidden == true {
+    if game.unplacedPiece?.piece.id == id, game.unplacedPiece?.hidden == true {
       return 0
     }
-    
+
     // Handle bonus pieces
     if case .bonusPiece = draggablePiece {
-      return selected ? 1 : 0  // Invisible until dragged
+      return selected ? 1 : 0 // Invisible until dragged
     }
-    
+
     // Regular slot pieces are always visible
     return 1
   }
@@ -266,7 +266,6 @@ struct DraggablePieceView: View {
       }
   }
 
-
   private func resetDragState(velocityMagnitude: CGFloat) {
     let returnToSlotAnimation = Animation.interpolatingSpring(
       duration: 0.5,
@@ -278,6 +277,5 @@ struct DraggablePieceView: View {
       selected = false
     }
   }
-
 
 }

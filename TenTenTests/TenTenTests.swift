@@ -411,7 +411,7 @@ struct TenTenTests {
 
     // Place pieces to decrement timer
     game.updateAvailablePieces(to: [.oneByOne, .oneByOne, .oneByOne])
-    
+
     game.addPiece(inSlot: 0, at: Point(x: 0, y: 0))
     #expect(game.powerupTurnsRemaining == 4)
     #expect(game.powerupPosition != nil)
@@ -425,7 +425,7 @@ struct TenTenTests {
     #expect(game.powerupPosition != nil)
 
     game.updateAvailablePieces(to: [.oneByOne, .oneByOne, .oneByOne])
-    
+
     game.addPiece(inSlot: 0, at: Point(x: 3, y: 0))
     #expect(game.powerupTurnsRemaining == 1)
     #expect(game.powerupPosition != nil)
@@ -439,20 +439,20 @@ struct TenTenTests {
   func powerupCollectionWhenRowCleared() {
     let game = Game()
     game.updateScore(to: 500)
-    
+
     let powerupPosition = game.powerupPosition!
-    
+
     // Fill the row containing the powerup except for one spot
     for x in 0..<10 {
       if Point(x: x, y: powerupPosition.y) != powerupPosition {
         game.addPiece(.oneByOne, at: Point(x: x, y: powerupPosition.y))
       }
     }
-    
+
     // Place the final piece to complete the row
     game.addPiece(.oneByOne, at: powerupPosition)
     game.clearFilledRows(placedPiece: .oneByOne, placedLocation: powerupPosition)
-    
+
     // Powerup should be collected
     #expect(game.powerupPosition == nil)
     #expect(game.powerupTurnsRemaining == 0)
@@ -463,20 +463,20 @@ struct TenTenTests {
   func powerupCollectionWhenColumnCleared() {
     let game = Game()
     game.updateScore(to: 500)
-    
+
     let powerupPosition = game.powerupPosition!
-    
+
     // Fill the column containing the powerup except for one spot
     for y in 0..<10 {
       if Point(x: powerupPosition.x, y: y) != powerupPosition {
         game.addPiece(.oneByOne, at: Point(x: powerupPosition.x, y: y))
       }
     }
-    
+
     // Place the final piece to complete the column
     game.addPiece(.oneByOne, at: powerupPosition)
     game.clearFilledRows(placedPiece: .oneByOne, placedLocation: powerupPosition)
-    
+
     // Powerup should be collected and bonus points awarded
     #expect(game.powerupPosition == nil)
     #expect(game.powerupTurnsRemaining == 0)
@@ -488,17 +488,17 @@ struct TenTenTests {
     let game = Game()
     game.updateScore(to: 500)
     game.updateAvailablePieces(to: [.oneByOne, .oneByOne, .oneByOne])
-    
+
     let originalPowerupPosition = game.powerupPosition!
     let originalTurns = game.powerupTurnsRemaining
-    
+
     // Place a piece (this creates an undo snapshot and decrements powerup timer)
     game.addPiece(inSlot: 0, at: Point(x: 0, y: 0))
     #expect(game.powerupTurnsRemaining == originalTurns - 1)
-    
+
     // Undo the move
     game.undoLastMove()
-    
+
     // Powerup state should be restored
     #expect(game.powerupPosition == originalPowerupPosition)
     #expect(game.powerupTurnsRemaining == originalTurns)
@@ -507,21 +507,21 @@ struct TenTenTests {
   @Test
   func deletePowerupFunctionality() {
     let game = Game()
-    
+
     // Start with no delete powerups
     #expect((game.powerups[.deletePiece] ?? 0) == 0)
     #expect(!game.isInDeleteMode)
     #expect(!game.enterDeleteMode()) // Should fail with no powerups
-    
+
     // Award a delete powerup
     game.awardPowerup(.deletePiece)
     #expect(game.powerups[.deletePiece] == 1)
-    
+
     // Enter delete mode should succeed and not consume powerup yet
     #expect(game.enterDeleteMode())
     #expect(game.isInDeleteMode)
     #expect(game.powerups[.deletePiece] == 1) // Not consumed yet
-    
+
     // Set up some pieces to delete
     game.updateAvailablePieces(to: [.oneByOne, .twoByTwo, .threeByThree])
     #expect(game.availablePieces[0] != nil)
@@ -533,12 +533,12 @@ struct TenTenTests {
   func deletePowerupCancellation() {
     let game = Game()
     game.awardPowerup(.deletePiece)
-    
+
     // Enter delete mode
     #expect(game.enterDeleteMode())
     #expect(game.isInDeleteMode)
     #expect(game.powerups[.deletePiece] == 1) // Not consumed
-    
+
     // Exit delete mode without using it
     game.exitDeleteMode()
     #expect(!game.isInDeleteMode)
@@ -549,11 +549,11 @@ struct TenTenTests {
   func deletePowerupWithUndo() {
     let game = Game()
     game.awardPowerup(.deletePiece)
-    
+
     // Enter delete mode
     game.enterDeleteMode()
     #expect(game.isInDeleteMode)
-    
+
     // Undo should exit delete mode
     game.undoLastMove()
     #expect(!game.isInDeleteMode)
@@ -563,24 +563,24 @@ struct TenTenTests {
   @Test
   func deletePowerupMultipleAwards() {
     let game = Game()
-    
+
     // Award multiple delete powerups
     game.awardPowerup(.deletePiece)
     game.awardPowerup(.deletePiece)
     game.awardPowerup(.deletePiece)
     #expect(game.powerups[.deletePiece] == 3)
-    
+
     // Use one
     game.updateAvailablePieces(to: [.oneByOne, .twoByTwo, .threeByThree])
     game.enterDeleteMode()
     game.deletePieceInSlot(0)
     #expect(game.powerups[.deletePiece] == 2)
-    
+
     // Use another
     game.enterDeleteMode()
     game.deletePieceInSlot(1)
     #expect(game.powerups[.deletePiece] == 1)
-    
+
     // Cancel the third
     game.enterDeleteMode()
     game.exitDeleteMode()
@@ -591,20 +591,20 @@ struct TenTenTests {
   func bonusPieceCanBePlacedOnBoard() {
     let game = Game()
     let initialScore = game.score
-    
+
     // Award a bonus piece powerup
     game.awardPowerup(.bonusPiece)
     #expect(game.powerups[.bonusPiece] == 1)
-    
+
     // Place the bonus piece using the new DraggablePiece method
     game.addPiece(from: .bonusPiece, at: Point(x: 0, y: 0))
-    
+
     // Powerup should be consumed
     #expect(game.powerups[.bonusPiece] == 0)
-    
+
     // Score should increase by 1 (1x1 piece = 1 point)
     #expect(game.score == initialScore + 1)
-    
+
     // Board should have the piece placed
     #expect(game.tiles[0][0].isFilled)
   }
@@ -613,13 +613,13 @@ struct TenTenTests {
   func bonusPieceCannotBePlacedWithoutPowerup() {
     let game = Game()
     let initialScore = game.score
-    
+
     // No bonus piece powerups
     #expect((game.powerups[.bonusPiece] ?? 0) == 0)
-    
+
     // Try to place bonus piece - should fail silently
     game.addPiece(from: .bonusPiece, at: Point(x: 0, y: 0))
-    
+
     // Nothing should have changed
     #expect(game.score == initialScore)
     #expect(!game.tiles[0][0].isFilled)
@@ -628,26 +628,26 @@ struct TenTenTests {
   @Test
   func bonusPieceIncludedInPlayableMoveCheck() {
     let game = Game()
-    
+
     // Fill board with checkerboard pattern (only 1x1 pieces can be placed)
     for tile in game.tiles.allPoints {
       if (tile.x + tile.y) % 2 == 0 {
         game.addPiece(.oneByOne, at: tile)
       }
     }
-    
+
     // Set up unplayable regular pieces
     game.updateAvailablePieces(to: [.threeByThree, .threeByThree, .threeByThree])
     #expect(!game.hasPlayableMove)
-    
+
     // Adding a bonus piece powerup should make the game playable again
     game.awardPowerup(.bonusPiece)
     #expect(game.hasPlayableMove)
-    
+
     // Place the bonus piece
     let emptyTile = game.tiles.allPoints.first { game.tiles[$0].isEmpty }!
     game.addPiece(from: .bonusPiece, at: emptyTile)
-    
+
     // Game should be unplayable again
     #expect(!game.hasPlayableMove)
   }
@@ -656,23 +656,23 @@ struct TenTenTests {
   func bonusPieceUndoFunctionality() {
     let game = Game()
     game.updateAvailablePieces(to: [.oneByOne, .oneByOne, .oneByOne])
-    
+
     // Award and place a bonus piece
     game.awardPowerup(.bonusPiece)
     let initialTiles = game.tiles
     let initialScore = game.score
     let initialPowerups = game.powerups[.bonusPiece]!
-    
+
     // Place bonus piece
     game.addPiece(from: .bonusPiece, at: Point(x: 5, y: 5))
     #expect(game.powerups[.bonusPiece] == 0) // Powerup consumed
     #expect(game.score == initialScore + 1)
     #expect(game.tiles != initialTiles)
-    
+
     // Should be able to undo bonus piece placement
     #expect(game.canUndoLastMove)
     game.undoLastMove()
-    
+
     // State should be restored
     #expect(game.powerups[.bonusPiece] == initialPowerups) // Powerup restored
     #expect(game.score == initialScore)
@@ -683,30 +683,29 @@ struct TenTenTests {
   func bonusPieceWithRegularPiecesUndo() {
     let game = Game()
     game.updateAvailablePieces(to: [.oneByOne, .twoByTwo, .threeByThree])
-    
+
     let initialState = (
       tiles: game.tiles,
       score: game.score,
       pieces: game.availablePieces.map { $0 },
-      powerups: game.powerups[.bonusPiece] ?? 0
-    )
-    
+      powerups: game.powerups[.bonusPiece] ?? 0)
+
     // Place a regular piece
     game.addPiece(inSlot: 0, at: Point(x: 0, y: 0))
     #expect(game.canUndoLastMove)
-    
+
     // Award and place a bonus piece
     game.awardPowerup(.bonusPiece)
     game.addPiece(from: .bonusPiece, at: Point(x: 1, y: 1))
-    
+
     // Should be able to undo bonus piece (last move)
     #expect(game.canUndoLastMove)
     game.undoLastMove()
-    
+
     // Should still be able to undo the regular piece
     #expect(game.canUndoLastMove)
     game.undoLastMove()
-    
+
     // Should be back to initial state
     #expect(game.tiles == initialState.tiles)
     #expect(game.score == initialState.score)
@@ -717,23 +716,23 @@ struct TenTenTests {
   func bonusPieceCanBeUndoneDuringGameplay() {
     let game = Game()
     game.updateAvailablePieces(to: [.oneByOne, .oneByOne, .oneByOne])
-    
+
     // Place all regular pieces to trigger new piece generation
     game.addPiece(inSlot: 0, at: Point(x: 0, y: 0))
     game.addPiece(inSlot: 1, at: Point(x: 1, y: 1))
     game.addPiece(inSlot: 2, at: Point(x: 2, y: 2))
-    
+
     // Regular pieces have been regenerated, so normally can't undo
     #expect(!game.canUndoLastMove)
-    
+
     // Award and place a bonus piece
     game.awardPowerup(.bonusPiece)
     game.addPiece(from: .bonusPiece, at: Point(x: 3, y: 3))
-    
+
     // Bonus piece moves can be undone even after piece regeneration
     #expect(game.canUndoLastMove)
     game.undoLastMove()
-    
+
     // Should restore the powerup
     #expect(game.powerups[.bonusPiece] == 1)
   }
@@ -745,11 +744,11 @@ extension Game {
   func addPiece(inSlot slot: Int, at point: Point) {
     addPiece(from: .slot(slot), at: point)
   }
-  
+
   func removePiece(inSlot slot: Int) {
     removePiece(.slot(slot))
   }
-  
+
   func updateScore(to score: Int) {
     increaseScore(by: score - self.score)
   }

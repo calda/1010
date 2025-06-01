@@ -35,7 +35,7 @@ struct GameView: View {
 
       PiecesTray()
         .padding(.bottom, 10)
-      
+
       PowerupButtons()
         .padding(.bottom, 10)
     }
@@ -83,7 +83,7 @@ struct GameView: View {
 
 struct PowerupButtons: View {
   @Environment(\.game) private var game
-  
+
   var body: some View {
     HStack(spacing: 20) {
       PowerupButton(powerupType: .bonusPiece)
@@ -95,9 +95,11 @@ struct PowerupButtons: View {
 // MARK: - PowerupButton
 
 struct PowerupButton: View {
+
+  // MARK: Internal
+
   let powerupType: Powerup
-  @State private var badgeVisible = false
-  
+
   var body: some View {
     ZStack {
       Button(action: action) {
@@ -106,27 +108,27 @@ struct PowerupButton: View {
             Circle()
               .fill(Color.gray.opacity(0.15))
               .frame(width: 50, height: 50)
-            
+
             Image(systemName: iconName)
               .font(.system(size: 20, weight: .bold))
               .foregroundColor(.gray)
           }
           .overlay(alignment: .bottomTrailing) {
-              Text(count.formatted(.number))
-                .font(.caption2)
-                .fontWeight(.bold)
-                .foregroundColor(.white)
-                .frame(minWidth: 18, minHeight: 18)
-                .background(Circle().fill(.blue))
-                .offset(x: 4, y: 4)
-                .scaleEffect(badgeVisible ? 1 : 0.4)
-                .opacity(badgeVisible ? 1 : 0)
-                .animation(.bouncy, value: badgeVisible)
+            Text(count.formatted(.number))
+              .font(.caption2)
+              .fontWeight(.bold)
+              .foregroundColor(.white)
+              .frame(minWidth: 18, minHeight: 18)
+              .background(Circle().fill(.blue))
+              .offset(x: 4, y: 4)
+              .scaleEffect(badgeVisible ? 1 : 0.4)
+              .opacity(badgeVisible ? 1 : 0)
+              .animation(.bouncy, value: badgeVisible)
           }
         }
       }
       .disabled(!isEnabled || powerupType == .bonusPiece)
-      .onChange(of: isEnabled) { oldValue, newValue in
+      .onChange(of: isEnabled) { _, newValue in
         DispatchQueue.main.async {
           badgeVisible = newValue
         }
@@ -139,23 +141,35 @@ struct PowerupButton: View {
         DraggablePieceView(
           piece: game.bonusPiece.piece,
           id: game.bonusPiece.id,
-          draggablePiece: .bonusPiece
-        )
-        .frame(width: 50, height: 50)
+          draggablePiece: .bonusPiece)
+          .frame(width: 50, height: 50)
       }
     }
   }
-  
-  @Environment(\.game) private var game
-  
+
   var count: Int {
     game.powerups[powerupType] ?? 0
   }
-  
+
+  // MARK: Private
+
+  @State private var badgeVisible = false
+
+  @Environment(\.game) private var game
+
   private var isEnabled: Bool {
     count > 0
   }
-  
+
+  private var iconName: String {
+    switch powerupType {
+    case .bonusPiece:
+      "plus.square.fill"
+    case .deletePiece:
+      "trash.fill"
+    }
+  }
+
   private func action() {
     switch powerupType {
     case .bonusPiece:
@@ -170,13 +184,5 @@ struct PowerupButton: View {
       }
     }
   }
-  
-  private var iconName: String {
-    switch powerupType {
-    case .bonusPiece:
-      return "plus.square.fill"
-    case .deletePiece:
-      return "trash.fill"
-    }
-  }
+
 }

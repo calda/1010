@@ -74,22 +74,24 @@ struct BoardView: View {
   }
 }
 
+// MARK: - PowerupOverlay
+
 struct PowerupOverlay: View {
   var body: some View {
-      let powerupVisible = game.powerupPosition != nil && !showingSettingsOverlay
-      
-      ZStack {
-        if powerupVisible, let powerupPosiiton = game.powerupPosition {
-          let tileFrame = boardLayout.tileFrames[powerupPosiiton] ?? .zero
-          
-          PowerupStarView(scale: 1.0)
-            .transition(.opacity)
-            .position(x: tileFrame.midX, y: tileFrame.midY)
-        }
+    let powerupVisible = game.powerupPosition != nil && !showingSettingsOverlay
+
+    ZStack {
+      if powerupVisible, let powerupPosiiton = game.powerupPosition {
+        let tileFrame = boardLayout.tileFrames[powerupPosiiton] ?? .zero
+
+        PowerupStarView(scale: 1.0)
+          .transition(.opacity)
+          .position(x: tileFrame.midX, y: tileFrame.midY)
       }
-      .animation(.spring, value: powerupVisible)
+    }
+    .animation(.spring, value: powerupVisible)
   }
-  
+
   @Environment(\.game) private var game
   @Environment(\.boardLayout) private var boardLayout
   @Environment(\.showingSettingsOverlay) private var showingSettingsOverlay
@@ -167,8 +169,11 @@ struct TileView: View {
 // MARK: - PowerupStarView
 
 struct PowerupStarView: View {
+
+  // MARK: Internal
+
   let scale: Double
-  
+
   var body: some View {
     ZStack {
       Image(systemName: "star.fill")
@@ -177,9 +182,7 @@ struct PowerupStarView: View {
           LinearGradient(
             colors: [.yellow, .orange],
             startPoint: .topLeading,
-            endPoint: .bottomTrailing
-          )
-        )
+            endPoint: .bottomTrailing))
         .shadow(color: .black.opacity(0.5), radius: 1 * scale)
     }
     .scaleEffect(visible ? 1.0 : 0)
@@ -191,12 +194,14 @@ struct PowerupStarView: View {
       DispatchQueue.main.async {
         visible = true
       }
-      
+
       DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
         pulsing = true
       }
     }
   }
+
+  // MARK: Private
 
   @State private var visible = false
   @State private var pulsing = false
@@ -233,17 +238,17 @@ extension View {
       }
     }
   }
-  
+
 }
 
 // MARK: - JiggleModifier
 
 struct JiggleModifier: ViewModifier {
+
+  // MARK: Internal
+
   let isJiggling: Bool
-  
-  @State private var jiggleRotation: Double = 0
-  @State private var jiggleDirection = 1.0
-  
+
   func body(content: Content) -> some View {
     content
       .rotationEffect(.degrees(jiggleRotation))
@@ -263,7 +268,12 @@ struct JiggleModifier: ViewModifier {
         }
       }
   }
-  
+
+  // MARK: Private
+
+  @State private var jiggleRotation: Double = 0
+  @State private var jiggleDirection = 1.0
+
   private func startJiggle() {
     jiggleDirection = 1.0
     Timer.scheduledTimer(withTimeInterval: 0.15, repeats: true) { timer in
@@ -274,7 +284,7 @@ struct JiggleModifier: ViewModifier {
       }
     }
   }
-  
+
   private func stopJiggle() {
     withAnimation(.easeInOut(duration: 0.15)) {
       jiggleRotation = 0
