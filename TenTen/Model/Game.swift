@@ -113,6 +113,9 @@ final class Game: Codable {
 
   /// Whether the game is in delete piece mode (pieces are jiggling and can be deleted)
   private(set) var isInDeleteMode = false
+  
+  /// Current powerup being collected with animation
+  private(set) var collectingPowerup: Powerup?
 
   /// Whether or not there is a playable move based on the available pieces
   var hasPlayableMove: Bool {
@@ -594,11 +597,17 @@ final class Game: Codable {
     guard let powerupPos = powerupPosition else { return }
 
     if clearedTiles.contains(powerupPos) {
-      // Powerup collected! Award a random powerup and remove powerup from board
+      // Start powerup collection animation
       let randomPowerup = Powerup.allCases.randomElement(seed: score + startDate.hashValue)
+      collectingPowerup = randomPowerup
       awardPowerup(randomPowerup)
-      powerupPosition = nil
-      powerupTurnsRemaining = 0
+      
+      // Wait for the matched transition animation to finish
+      DispatchQueue.main.asyncAfter_syncInUnitTests(deadline: .now() + 0.75) { [self] in
+        powerupPosition = nil
+        powerupTurnsRemaining = 0
+        collectingPowerup = nil
+      }
     }
   }
 

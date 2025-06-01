@@ -11,6 +11,7 @@ extension EnvironmentValues {
   @Entry var game = Game()
   @Entry var boardLayout = BoardLayout()
   @Entry var placedPieceNamespace: () -> Namespace.ID = { fatalError() }
+  @Entry var powerupAnimationNamespace: () -> Namespace.ID = { fatalError() }
   @Entry var showingGameOverScreen = false
   @Entry var showingSettingsOverlay = false
 }

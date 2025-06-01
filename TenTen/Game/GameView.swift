@@ -47,6 +47,7 @@ struct GameView: View {
     .environment(\.game, game)
     .environment(\.boardLayout, boardLayout)
     .environment(\.placedPieceNamespace) { placedPiece }
+    .environment(\.powerupAnimationNamespace) { powerupAnimation }
     .environment(\.showingSettingsOverlay, presentSettingsOverlay)
     .environment(\.showingGameOverScreen, presentGameOverSheet)
     .animation(
@@ -76,6 +77,7 @@ struct GameView: View {
   @State private var presentGameOverSheet = false
   @State private var presentSettingsOverlay = false
   @Namespace private var placedPiece
+  @Namespace private var powerupAnimation
 
 }
 
@@ -112,6 +114,15 @@ struct PowerupButton: View {
             Image(systemName: iconName)
               .font(.system(size: 20, weight: .bold))
               .foregroundColor(isEnabled ? .gray : .gray.opacity(0.5))
+              
+            if game.collectingPowerup == powerupType {
+              PowerupStarView()
+                .matchedGeometryEffect(
+                  id: "powerup",
+                  in: powerupAnimationNamespace(),
+                  isSource: true
+                )
+            }
           }
           .overlay(alignment: .bottomTrailing) {
             Text(count.formatted(.number))
@@ -161,6 +172,7 @@ struct PowerupButton: View {
   @State private var badgeVisible = false
 
   @Environment(\.game) private var game
+  @Environment(\.powerupAnimationNamespace) private var powerupAnimationNamespace
   @Environment(\.showingSettingsOverlay) private var showingSettingsOverlay
 
   private var isEnabled: Bool {

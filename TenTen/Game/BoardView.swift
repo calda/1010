@@ -78,15 +78,18 @@ struct BoardView: View {
 
 struct PowerupOverlay: View {
   var body: some View {
-    let powerupVisible = game.powerupPosition != nil && !showingSettingsOverlay
+    let powerupVisible = game.powerupPosition != nil
+      && game.collectingPowerup == nil
+      && !showingSettingsOverlay
 
     ZStack {
-      if powerupVisible, let powerupPosiiton = game.powerupPosition {
-        let tileFrame = boardLayout.tileFrames[powerupPosiiton] ?? .zero
+      if powerupVisible, let powerupPosition = game.powerupPosition {
+        let tileFrame = boardLayout.tileFrames[powerupPosition] ?? .zero
 
-        PowerupStarView(scale: 1.0)
+        PowerupStarView()
           .transition(.opacity)
           .position(x: tileFrame.midX, y: tileFrame.midY)
+          .matchedGeometryEffect(id: "powerup",in: powerupAnimationNamespace())
       }
     }
     .animation(.spring, value: powerupVisible)
@@ -94,6 +97,7 @@ struct PowerupOverlay: View {
 
   @Environment(\.game) private var game
   @Environment(\.boardLayout) private var boardLayout
+  @Environment(\.powerupAnimationNamespace) private var powerupAnimationNamespace
   @Environment(\.showingSettingsOverlay) private var showingSettingsOverlay
 }
 
@@ -172,18 +176,16 @@ struct PowerupStarView: View {
 
   // MARK: Internal
 
-  let scale: Double
-
   var body: some View {
     ZStack {
       Image(systemName: "star.fill")
-        .font(.system(size: 20 * scale, weight: .bold))
+        .font(.system(size: 20, weight: .bold))
         .foregroundStyle(
           LinearGradient(
             colors: [.yellow, .orange],
             startPoint: .topLeading,
             endPoint: .bottomTrailing))
-        .shadow(color: .black.opacity(0.5), radius: 1 * scale)
+        .shadow(color: .black.opacity(0.5), radius: 1)
     }
     .scaleEffect(visible ? 1.0 : 0)
     .opacity(visible ? 1.0 : 0)
