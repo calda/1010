@@ -34,7 +34,10 @@ struct GameView: View {
       Spacer()
 
       PiecesTray()
-        .padding(.bottom, 20)
+        .padding(.bottom, 10)
+      
+      PowerupButtons()
+        .padding(.bottom, 10)
     }
     .overlay {
       PowerupOverlay()
@@ -74,4 +77,79 @@ struct GameView: View {
   @State private var presentSettingsOverlay = false
   @Namespace private var placedPiece
 
+}
+
+// MARK: - PowerupButtons
+
+struct PowerupButtons: View {
+  @Environment(\.game) private var game
+  
+  var body: some View {
+    HStack(spacing: 20) {
+      PowerupButton(powerupType: .bonusPiece)
+      PowerupButton(powerupType: .deletePiece)
+    }
+  }
+}
+
+// MARK: - PowerupButton
+
+struct PowerupButton: View {
+  let powerupType: Powerup
+  @State private var badgeVisible = false
+  
+  var body: some View {
+    Button(action: action) {
+      VStack(spacing: 4) {
+        ZStack {
+          Circle()
+            .fill(Color.gray.opacity(0.15))
+            .frame(width: 50, height: 50)
+          
+          Image(systemName: iconName)
+            .font(.system(size: 20, weight: .bold))
+            .foregroundColor(.gray)
+        }
+        .overlay(alignment: .bottomTrailing) {
+            Text(count.formatted(.number))
+              .font(.caption2)
+              .fontWeight(.bold)
+              .foregroundColor(.white)
+              .frame(minWidth: 18, minHeight: 18)
+              .background(Circle().fill(.blue))
+              .offset(x: 4, y: 4)
+              .scaleEffect(badgeVisible ? 1 : 0.4)
+              .opacity(badgeVisible ? 1 : 0)
+              .animation(.bouncy, value: badgeVisible)
+        }
+      }
+    }
+    .disabled(!isEnabled)
+    .onChange(of: isEnabled) { oldValue, newValue in
+      badgeVisible = newValue
+    }
+  }
+  
+  @Environment(\.game) private var game
+  
+  var count: Int {
+    game.powerups[powerupType] ?? 0
+  }
+  
+  private var isEnabled: Bool {
+    count > 0
+  }
+  
+  private func action() {
+    
+  }
+  
+  private var iconName: String {
+    switch powerupType {
+    case .bonusPiece:
+      return "plus.square.fill"
+    case .deletePiece:
+      return "trash.fill"
+    }
+  }
 }

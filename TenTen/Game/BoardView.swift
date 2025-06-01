@@ -76,19 +76,18 @@ struct BoardView: View {
 
 struct PowerupOverlay: View {
   var body: some View {
-    ForEach(game.tiles.allPoints, id: \.self) { point in
-      let tileFrame = boardLayout.tileFrames[point] ?? .zero
-      let powerupVisible = game.powerupPosition == point && !showingSettingsOverlay
+      let powerupVisible = game.powerupPosition != nil && !showingSettingsOverlay
       
       ZStack {
-        if powerupVisible {
+        if powerupVisible, let powerupPosiiton = game.powerupPosition {
+          let tileFrame = boardLayout.tileFrames[powerupPosiiton] ?? .zero
+          
           PowerupStarView(scale: 1.0)
-            .transition(.scale.combined(with: .opacity))
+            .transition(.opacity)
+            .position(x: tileFrame.midX, y: tileFrame.midY)
         }
       }
-      .position(x: tileFrame.midX, y: tileFrame.midY)
       .animation(.spring, value: powerupVisible)
-    }
   }
   
   @Environment(\.game) private var game
@@ -183,13 +182,23 @@ struct PowerupStarView: View {
         )
         .shadow(color: .black.opacity(0.5), radius: 1 * scale)
     }
+    .scaleEffect(visible ? 1.0 : 0)
+    .opacity(visible ? 1.0 : 0)
     .scaleEffect(pulsing ? 1.2 : 1.0)
     .animation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true), value: pulsing)
+    .animation(.spring(duration: 0.3), value: visible)
     .onAppear {
-      pulsing = true
+      DispatchQueue.main.async {
+        visible = true
+      }
+      
+      DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+        pulsing = true
+      }
     }
   }
 
+  @State private var visible = false
   @State private var pulsing = false
 }
 

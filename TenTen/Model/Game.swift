@@ -511,7 +511,7 @@ final class Game: Codable {
     guard powerupPosition == nil else { return }
     
     let scoresSince = score - lastPowerupScore
-    guard scoresSince >= 10 else { return }
+    guard scoresSince >= 10 else { return } // TODO: REVERT
     //guard scoresSince >= 500 else { return }
     
     let emptyTiles = tiles.allPoints.filter { tiles[$0].isEmpty }
@@ -519,7 +519,7 @@ final class Game: Codable {
     
     let randomTile = emptyTiles.randomElement(seed: score + startDate.hashValue)
     powerupPosition = randomTile
-    powerupTurnsRemaining = 5
+    powerupTurnsRemaining = 20 // 5 TODO: REVERT
     lastPowerupScore = score
   }
 
@@ -558,11 +558,6 @@ final class Game: Codable {
     return true
   }
 
-  /// Returns the count of a specific powerup in inventory
-  func powerupCount(_ powerupType: Powerup) -> Int {
-    return powerups[powerupType] ?? 0
-  }
-
   /// Uses the bonus piece powerup to create a 1x1 piece
   func useBonusPiecePowerup() -> Bool {
     guard usePowerup(.bonusPiece) else { return false }
@@ -578,23 +573,6 @@ final class Game: Codable {
     removePiece(inSlot: slot)
     reloadAvailablePiecesIfNeeded()
     return true
-  }
-
-  /// Places the bonus piece on the board
-  func addBonusPiece(at point: Point) {
-    guard let bonus = bonusPiece, canAddPiece(bonus.piece, at: point) else { return }
-    
-    increaseScore(by: bonus.piece.points)
-    moveCount += 1
-    decrementPowerupTimer()
-    
-    addPiece(bonus.piece, at: point)
-    bonusPiece = nil
-    
-    // Clear filled rows after placing bonus piece
-    DispatchQueue.main.asyncAfter_syncInUnitTests(deadline: .now() + 0.025) {
-      self.clearFilledRows(placedPiece: bonus.piece, placedLocation: point)
-    }
   }
 
   // MARK: Private
