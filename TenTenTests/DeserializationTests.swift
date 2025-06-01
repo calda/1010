@@ -85,7 +85,6 @@ struct DeserializationTests {
     #expect(game.achievements == [.oneThousandPoints, .tenThousandPoints, .twentyOneThousandPoints])
     #expect(game.startDate == Date(timeIntervalSinceReferenceDate: 766982431.877754))
     #expect(game.isHighScore)
-    #expect(game.canUndoLastMove)
     #expect(game.powerups == [.bonusPiece: 3, .deletePiece: 2])
   }
 

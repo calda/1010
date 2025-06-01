@@ -546,7 +546,7 @@ struct TenTenTests {
   }
 
   @Test
-  func deletePowerupWithUndo() {
+  func undoCancelsDeleteMode() {
     let game = Game()
     game.awardPowerup(.deletePiece)
 
@@ -558,6 +558,59 @@ struct TenTenTests {
     game.undoLastMove()
     #expect(!game.isInDeleteMode)
     #expect(game.powerups[.deletePiece] == 1) // Should not consume powerup
+  }
+  
+  @Test
+  func undoDeletePowerup() {
+    let game = Game()
+    game.updateAvailablePieces(to: [.oneByOne, .twoByTwo, .threeByThree])
+
+    // Award a delete powerup
+    game.awardPowerup(.deletePiece)
+    let initialPowerups = game.powerups[.deletePiece]!
+    let initialPieces = game.availablePieces.map { $0?.id }
+
+    // Enter delete mode and delete a piece
+    game.enterDeleteMode()
+    game.deletePieceInSlot(1)
+
+    // Verify the delete happened
+    #expect(game.powerups[.deletePiece] == 0)
+    #expect(!game.isInDeleteMode)
+
+    // Should be able to undo the delete
+    #expect(game.canUndoLastMove)
+    game.undoLastMove()
+
+    // Should restore the powerup and pieces
+    #expect(game.powerups[.deletePiece] == initialPowerups)
+    #expect(game.availablePieces.map { $0?.id } == initialPieces)
+  }
+
+  
+  @Test
+  func deletePieceUndoCanBeDoneAfterPieceRegeneration() {
+    let game = Game()
+    game.updateAvailablePieces(to: [.oneByOne, .twoByTwo, .threeByThree])
+
+    // Place two pieces (leaving one slot)
+    game.addPiece(inSlot: 0, at: Point(x: 0, y: 0))
+    game.addPiece(inSlot: 1, at: Point(x: 1, y: 1))
+
+    // Delete the remaining piece
+    game.awardPowerup(.deletePiece)
+    game.enterDeleteMode()
+    game.deletePieceInSlot(2)
+
+    // This triggers piece regeneration since all slots are now empty
+    #expect(game.availablePieces.allSatisfy { $0 != nil })
+
+    // Delete actions can be undone even after piece regeneration
+    #expect(game.canUndoLastMove)
+    game.undoLastMove()
+
+    // Should restore the powerup
+    #expect(game.powerups[.deletePiece] == 1)
   }
 
   @Test

@@ -413,6 +413,16 @@ final class Game: Codable {
     at point: Point,
     fromDraggablePiece draggablePiece: DraggablePiece)
   {
+    recordUndoSnapshot(action: .placePiece(piece: placedPiece, point: point, source: draggablePiece))
+  }
+  
+  /// Records an entry in the undo stack for a delete action.
+  func recordUndoSnapshot(didDeletePieceInSlot slot: Int) {
+    recordUndoSnapshot(action: .deletePiece(slot: slot))
+  }
+  
+  /// Records an entry in the undo stack with the specified action.
+  private func recordUndoSnapshot(action: UndoAction) {
     // You can't undo after receiving new random pieces (except on the game over screen)
     // so you can never undo more than three times in a row.
     let undoStackLimit = 3
@@ -422,9 +432,7 @@ final class Game: Codable {
       tiles: tiles,
       availablePieces: availablePieces,
       bonusPiece: bonusPiece,
-      placedPiece: placedPiece,
-      placedPiecePoint: point,
-      placedPieceSource: draggablePiece,
+      action: action,
       powerupPosition: powerupPosition,
       powerupTurnsRemaining: powerupTurnsRemaining,
       lastPowerupScore: lastPowerupScore,
@@ -457,8 +465,18 @@ final class Game: Codable {
     }
 
     let restoredSnapshot = undoHistory.removeFirst()
-    let piece = restoredSnapshot.placedPiece
-    let tile = restoredSnapshot.placedPiecePoint
+    
+    // Handle different types of undo actions
+    switch restoredSnapshot.action {
+    case .placePiece(let piece, let tile, _):
+      undoPlacePieceAction(piece: piece, tile: tile, restoredSnapshot: restoredSnapshot)
+    case .deletePiece:
+      undoDeletePieceAction(restoredSnapshot: restoredSnapshot)
+    }
+  }
+  
+  /// Undoes a piece placement action
+  private func undoPlacePieceAction(piece: RandomPiece, tile: Point, restoredSnapshot: UndoSnapshot) {
     unplacedPiece = (piece: piece, tile: tile, hidden: false)
 
     // Check if placing the tile triggered a clear
@@ -507,6 +525,15 @@ final class Game: Codable {
     else {
       animateUnplacedPiece()
     }
+  }
+  
+  /// Undoes a piece deletion action
+  private func undoDeletePieceAction(restoredSnapshot: UndoSnapshot) {
+    // Restore the game state (this will restore the deleted piece and the powerup)
+    restore(restoredSnapshot)
+    
+    // Complete the undo immediately since there's no piece animation needed
+    performPendingUndoIfNecessary()
   }
 
   /// Performs any pending undo action
@@ -633,12 +660,23 @@ final class Game: Codable {
     guard slot >= 0, slot < availablePieces.count else { return }
     guard availablePieces[slot] != nil else { return }
 
-    // Only consume the powerup when a piece is actually deleted
-    guard usePowerup(.deletePiece) else { return }
+    // Check if we have the powerup before proceeding
+    guard (powerups[.deletePiece] ?? 0) > 0 else { return }
+
+    // Record undo snapshot BEFORE consuming the powerup
+    recordUndoSnapshot(didDeletePieceInSlot: slot)
+
+    // Now consume the powerup
+    usePowerup(.deletePiece)
 
     removePiece(.slot(slot))
-    reloadAvailablePiecesIfNeeded()
     exitDeleteMode()
+    
+    // Wait a moment before regenerating new pieces if needed
+    // to prevent them from visually overlapping
+    DispatchQueue.main.asyncAfter_syncInUnitTests(deadline: .now() + 0.2) {
+      self.reloadAvailablePiecesIfNeeded()
+    }
   }
 
   // MARK: Private
@@ -716,6 +754,14 @@ extension Game {
 
 // MARK: - UndoSnapshot
 
+// MARK: - UndoAction
+
+/// The type of action that created this undo snapshot
+enum UndoAction: Codable {
+  case placePiece(piece: RandomPiece, point: Point, source: DraggablePiece)
+  case deletePiece(slot: Int)
+}
+
 /// A snapshot of game state that can be restored later
 struct UndoSnapshot: Codable {
   let score: Int
@@ -723,14 +769,8 @@ struct UndoSnapshot: Codable {
   let availablePieces: [RandomPiece?]
   let bonusPiece: RandomPiece
 
-  /// The piece that was placed when this snapshot was created
-  let placedPiece: RandomPiece
-
-  /// The point that `placedPiece` was placed at on the board
-  let placedPiecePoint: Point
-
-  /// The source of the placed piece (slot or bonus piece)
-  let placedPieceSource: DraggablePiece
+  /// The action that was taken when this snapshot was created
+  let action: UndoAction
 
   /// Powerup state when snapshot was created
   let powerupPosition: Point?
@@ -743,13 +783,47 @@ struct UndoSnapshot: Codable {
   /// We don't allow undoing a move after the random pieces are regenerated.
   /// From the game over screen, any move can be undone.
   var canBeUndoneDuringGameplay: Bool {
-    switch placedPieceSource {
-    case .slot:
-      // For regular pieces, check if there are still pieces available
-      availablePieces.count(where: { $0 != nil }) > 1
-    case .bonusPiece:
-      // Bonus piece moves can always be undone during gameplay
+    switch action {
+    case .placePiece(_, _, let source):
+      switch source {
+      case .slot:
+        // For regular pieces, check if there are still pieces available
+        availablePieces.count(where: { $0 != nil }) > 1
+      case .bonusPiece:
+        // Bonus piece moves can always be undone during gameplay
+        true
+      }
+    case .deletePiece:
+      // Delete actions can always be undone during gameplay
       true
+    }
+  }
+
+  // Legacy computed properties for backward compatibility
+  var placedPiece: RandomPiece {
+    switch action {
+    case .placePiece(let piece, _, _):
+      return piece
+    case .deletePiece:
+      fatalError("No placed piece for delete action")
+    }
+  }
+
+  var placedPiecePoint: Point {
+    switch action {
+    case .placePiece(_, let point, _):
+      return point
+    case .deletePiece:
+      fatalError("No placed piece point for delete action")
+    }
+  }
+
+  var placedPieceSource: DraggablePiece {
+    switch action {
+    case .placePiece(_, _, let source):
+      return source
+    case .deletePiece:
+      fatalError("No placed piece source for delete action")
     }
   }
 }

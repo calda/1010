@@ -252,7 +252,7 @@ struct JiggleModifier: ViewModifier {
   func body(content: Content) -> some View {
     content
       .rotationEffect(.degrees(jiggleRotation))
-      .animation(.easeInOut(duration: 0.15), value: jiggleRotation)
+      .animation(.easeInOut(duration: 0.1), value: jiggleRotation)
       .onChange(of: isJiggling) { _, isJiggling in
         if isJiggling {
           startJiggle()
@@ -262,8 +262,8 @@ struct JiggleModifier: ViewModifier {
       }
       .onChange(of: jiggleDirection) { _, _ in
         if isJiggling {
-          withAnimation(.easeInOut(duration: 0.15)) {
-            jiggleRotation = jiggleDirection * 4
+          withAnimation(.easeInOut(duration: 0.1)) {
+            jiggleRotation = jiggleDirection * 2
           }
         }
       }
@@ -273,20 +273,33 @@ struct JiggleModifier: ViewModifier {
 
   @State private var jiggleRotation: Double = 0
   @State private var jiggleDirection = 1.0
+  @State private var timer: Timer?
 
   private func startJiggle() {
+    // Stop any existing timer first
+    stopJiggle()
+    
+    // Reset state
     jiggleDirection = 1.0
-    Timer.scheduledTimer(withTimeInterval: 0.15, repeats: true) { timer in
+    jiggleRotation = 2.0 // Start with initial rotation
+    
+    // Create new timer
+    timer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { _ in
       if isJiggling {
         jiggleDirection *= -1
       } else {
-        timer.invalidate()
+        stopJiggle()
       }
     }
   }
 
   private func stopJiggle() {
-    withAnimation(.easeInOut(duration: 0.15)) {
+    // Invalidate timer
+    timer?.invalidate()
+    timer = nil
+    
+    // Reset rotation with animation
+    withAnimation(.easeInOut(duration: 0.1)) {
       jiggleRotation = 0
     }
   }
