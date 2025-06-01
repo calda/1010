@@ -111,7 +111,7 @@ struct PowerupButton: View {
 
             Image(systemName: iconName)
               .font(.system(size: 20, weight: .bold))
-              .foregroundColor(.gray)
+              .foregroundColor(isEnabled ? .gray : .gray.opacity(0.5))
           }
           .overlay(alignment: .bottomTrailing) {
             Text(count.formatted(.number))
@@ -137,12 +137,14 @@ struct PowerupButton: View {
         badgeVisible = isEnabled
       }
       // Invisible draggable bonus piece for bonus piece button
-      if powerupType == .bonusPiece, (game.powerups[.bonusPiece] ?? 0) > 0 {
+      if powerupType == .bonusPiece {
         DraggablePieceView(
           piece: game.bonusPiece.piece,
           id: game.bonusPiece.id,
           draggablePiece: .bonusPiece)
           .frame(width: 50, height: 50)
+          .allowsHitTesting((game.powerups[.bonusPiece] ?? 0) != 0)
+          .id(game.bonusPiece.id)
       }
     }
     .opacity(showingSettingsOverlay ? 0 : 1)

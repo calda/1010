@@ -195,14 +195,12 @@ struct DraggablePieceView: View {
   /// The opacity of this piece. Bonus pieces start invisible and become visible when dragged.
   /// Regular pieces are always visible unless hidden during undo.
   private var opacity: Double {
-    // Handle unplaced pieces (during undo)
-    if game.unplacedPiece?.piece.id == id, game.unplacedPiece?.hidden == true {
-      return 0
+    if let unplacedPiece = game.unplacedPiece, unplacedPiece.piece.id == id {
+      return unplacedPiece.hidden ? 0 : 1
     }
 
-    // Handle bonus pieces
     if case .bonusPiece = draggablePiece {
-      return selected ? 1 : 0 // Invisible until dragged
+      return selected ? 1 : 0
     }
 
     // Regular slot pieces are always visible

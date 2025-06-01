@@ -79,7 +79,7 @@ final class Game: Codable {
   private(set) var availablePieces: [RandomPiece?]
 
   /// Bonus 1x1 piece available from powerup (separate from the 3 main pieces)
-  let bonusPiece = RandomPiece(id: UUID(), piece: .oneByOne)
+  private(set) var bonusPiece = RandomPiece(id: UUID(), piece: .oneByOne)
 
   /// Achievements scored this game
   private(set) var achievements: [Achievement]
@@ -438,21 +438,6 @@ final class Game: Codable {
     }
   }
 
-  /// Legacy method for compatibility
-  func recordUndoSnapshot(didPlacePiece placedPiece: RandomPiece, at point: Point) {
-    // Determine the draggable piece source based on which slot contains this piece
-    let draggablePiece: DraggablePiece =
-      if bonusPiece.id == placedPiece.id {
-        .bonusPiece
-      } else if let slotIndex = availablePieces.firstIndex(where: { $0?.id == placedPiece.id }) {
-        .slot(slotIndex)
-      } else {
-        // Fallback - shouldn't happen in normal gameplay
-        .slot(0)
-      }
-    recordUndoSnapshot(didPlacePiece: placedPiece, at: point, fromDraggablePiece: draggablePiece)
-  }
-
   /// Restores the most recent undo snapshot and removes it from the undo stack if permitted
   func undoLastMove() {
     // Exit delete mode if active
@@ -548,15 +533,22 @@ final class Game: Codable {
   func spawnPowerupIfNeeded() {
     guard powerupPosition == nil else { return }
 
-    let scoresSince = score - lastPowerupScore
-    guard scoresSince >= 500 else { return }
+    #if targetEnvironment(simulator)
+    let lowerScoreThreshold = NSClassFromString("XCTest") == nil
+    #else
+    let lowerScoreThreshold = false
+    #endif
+    
+    let pointsBetweenPowerups = lowerScoreThreshold ? 10 : 500
+    let turnsForPowerup = lowerScoreThreshold ? 20 : 5
+    
+    guard (score - lastPowerupScore) >= pointsBetweenPowerups else { return }
 
     let emptyTiles = tiles.allPoints.filter { tiles[$0].isEmpty }
-    guard !emptyTiles.isEmpty else { return }
-
     let randomTile = emptyTiles.randomElement(seed: score + startDate.hashValue)
+    
     powerupPosition = randomTile
-    powerupTurnsRemaining = 5
+    powerupTurnsRemaining = turnsForPowerup
     lastPowerupScore = score
   }
 
@@ -586,6 +578,11 @@ final class Game: Codable {
   /// Awards a powerup to the player's inventory
   func awardPowerup(_ powerupType: Powerup) {
     powerups[powerupType, default: 0] += 1
+    
+    // Generate a new bonus piece with unique ID when awarding bonus piece powerup
+    if powerupType == .bonusPiece {
+      generateNewBonusPiece()
+    }
   }
 
   /// Uses a powerup from the player's inventory
@@ -593,7 +590,18 @@ final class Game: Codable {
   func usePowerup(_ powerupType: Powerup) -> Bool {
     guard let count = powerups[powerupType], count > 0 else { return false }
     powerups[powerupType] = count - 1
+    
+    // Generate a new bonus piece with unique ID when using bonus piece powerup
+    if powerupType == .bonusPiece {
+      generateNewBonusPiece()
+    }
+    
     return true
+  }
+  
+  /// Generates a new bonus piece with a unique ID
+  private func generateNewBonusPiece() {
+    bonusPiece = RandomPiece(id: UUID(), piece: .oneByOne)
   }
 
   /// Uses the delete piece powerup to remove a piece from the available pieces
@@ -713,7 +721,7 @@ struct UndoSnapshot: Codable {
   let score: Int
   let tiles: [[Tile]]
   let availablePieces: [RandomPiece?]
-  let bonusPiece: RandomPiece?
+  let bonusPiece: RandomPiece
 
   /// The piece that was placed when this snapshot was created
   let placedPiece: RandomPiece
@@ -751,6 +759,7 @@ extension Game {
     score = undoSnapshot.score
     tiles = undoSnapshot.tiles
     availablePieces = undoSnapshot.availablePieces
+    bonusPiece = undoSnapshot.bonusPiece
     powerupPosition = undoSnapshot.powerupPosition
     powerupTurnsRemaining = undoSnapshot.powerupTurnsRemaining
     lastPowerupScore = undoSnapshot.lastPowerupScore
