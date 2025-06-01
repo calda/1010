@@ -175,7 +175,10 @@ final class Game: Codable {
       randomPiece = piece
       
     case .bonusPiece:
-      guard canAddPiece(bonusPiece.piece, at: point) else { return }
+      guard 
+        (powerups[.bonusPiece] ?? 0) > 0,
+        canAddPiece(bonusPiece.piece, at: point) 
+      else { return }
       randomPiece = bonusPiece
     }
 

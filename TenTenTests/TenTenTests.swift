@@ -586,6 +586,157 @@ struct TenTenTests {
     game.exitDeleteMode()
     #expect(game.powerups[.deletePiece] == 1) // Should not consume
   }
+
+  @Test
+  func bonusPieceCanBePlacedOnBoard() {
+    let game = Game()
+    let initialScore = game.score
+    
+    // Award a bonus piece powerup
+    game.awardPowerup(.bonusPiece)
+    #expect(game.powerups[.bonusPiece] == 1)
+    
+    // Place the bonus piece using the new DraggablePiece method
+    game.addPiece(from: .bonusPiece, at: Point(x: 0, y: 0))
+    
+    // Powerup should be consumed
+    #expect(game.powerups[.bonusPiece] == 0)
+    
+    // Score should increase by 1 (1x1 piece = 1 point)
+    #expect(game.score == initialScore + 1)
+    
+    // Board should have the piece placed
+    #expect(game.tiles[0][0].isFilled)
+  }
+
+  @Test
+  func bonusPieceCannotBePlacedWithoutPowerup() {
+    let game = Game()
+    let initialScore = game.score
+    
+    // No bonus piece powerups
+    #expect((game.powerups[.bonusPiece] ?? 0) == 0)
+    
+    // Try to place bonus piece - should fail silently
+    game.addPiece(from: .bonusPiece, at: Point(x: 0, y: 0))
+    
+    // Nothing should have changed
+    #expect(game.score == initialScore)
+    #expect(!game.tiles[0][0].isFilled)
+  }
+
+  @Test
+  func bonusPieceIncludedInPlayableMoveCheck() {
+    let game = Game()
+    
+    // Fill board with checkerboard pattern (only 1x1 pieces can be placed)
+    for tile in game.tiles.allPoints {
+      if (tile.x + tile.y) % 2 == 0 {
+        game.addPiece(.oneByOne, at: tile)
+      }
+    }
+    
+    // Set up unplayable regular pieces
+    game.updateAvailablePieces(to: [.threeByThree, .threeByThree, .threeByThree])
+    #expect(!game.hasPlayableMove)
+    
+    // Adding a bonus piece powerup should make the game playable again
+    game.awardPowerup(.bonusPiece)
+    #expect(game.hasPlayableMove)
+    
+    // Place the bonus piece
+    let emptyTile = game.tiles.allPoints.first { game.tiles[$0].isEmpty }!
+    game.addPiece(from: .bonusPiece, at: emptyTile)
+    
+    // Game should be unplayable again
+    #expect(!game.hasPlayableMove)
+  }
+
+  @Test
+  func bonusPieceUndoFunctionality() {
+    let game = Game()
+    game.updateAvailablePieces(to: [.oneByOne, .oneByOne, .oneByOne])
+    
+    // Award and place a bonus piece
+    game.awardPowerup(.bonusPiece)
+    let initialTiles = game.tiles
+    let initialScore = game.score
+    let initialPowerups = game.powerups[.bonusPiece]!
+    
+    // Place bonus piece
+    game.addPiece(from: .bonusPiece, at: Point(x: 5, y: 5))
+    #expect(game.powerups[.bonusPiece] == 0) // Powerup consumed
+    #expect(game.score == initialScore + 1)
+    #expect(game.tiles != initialTiles)
+    
+    // Should be able to undo bonus piece placement
+    #expect(game.canUndoLastMove)
+    game.undoLastMove()
+    
+    // State should be restored
+    #expect(game.powerups[.bonusPiece] == initialPowerups) // Powerup restored
+    #expect(game.score == initialScore)
+    #expect(game.tiles == initialTiles)
+  }
+
+  @Test
+  func bonusPieceWithRegularPiecesUndo() {
+    let game = Game()
+    game.updateAvailablePieces(to: [.oneByOne, .twoByTwo, .threeByThree])
+    
+    let initialState = (
+      tiles: game.tiles,
+      score: game.score,
+      pieces: game.availablePieces.map { $0 },
+      powerups: game.powerups[.bonusPiece] ?? 0
+    )
+    
+    // Place a regular piece
+    game.addPiece(inSlot: 0, at: Point(x: 0, y: 0))
+    #expect(game.canUndoLastMove)
+    
+    // Award and place a bonus piece
+    game.awardPowerup(.bonusPiece)
+    game.addPiece(from: .bonusPiece, at: Point(x: 1, y: 1))
+    
+    // Should be able to undo bonus piece (last move)
+    #expect(game.canUndoLastMove)
+    game.undoLastMove()
+    
+    // Should still be able to undo the regular piece
+    #expect(game.canUndoLastMove)
+    game.undoLastMove()
+    
+    // Should be back to initial state
+    #expect(game.tiles == initialState.tiles)
+    #expect(game.score == initialState.score)
+    #expect(game.availablePieces.map { $0?.id } == initialState.pieces.map { $0?.id })
+  }
+
+  @Test
+  func bonusPieceCanBeUndoneDuringGameplay() {
+    let game = Game()
+    game.updateAvailablePieces(to: [.oneByOne, .oneByOne, .oneByOne])
+    
+    // Place all regular pieces to trigger new piece generation
+    game.addPiece(inSlot: 0, at: Point(x: 0, y: 0))
+    game.addPiece(inSlot: 1, at: Point(x: 1, y: 1))
+    game.addPiece(inSlot: 2, at: Point(x: 2, y: 2))
+    
+    // Regular pieces have been regenerated, so normally can't undo
+    #expect(!game.canUndoLastMove)
+    
+    // Award and place a bonus piece
+    game.awardPowerup(.bonusPiece)
+    game.addPiece(from: .bonusPiece, at: Point(x: 3, y: 3))
+    
+    // Bonus piece moves can be undone even after piece regeneration
+    #expect(game.canUndoLastMove)
+    game.undoLastMove()
+    
+    // Should restore the powerup
+    #expect(game.powerups[.bonusPiece] == 1)
+  }
 }
 
 // MARK: Helpers
