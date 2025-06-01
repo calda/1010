@@ -112,7 +112,14 @@ struct DraggablePieceView: View {
       // Enable the drag gesture. Have the entire space around the piece be draggable.
       .frame(maxWidth: .infinity, maxHeight: .infinity)
       .contentShape(Rectangle())
-      .gesture(dragGesture)
+      .gesture(game.isInDeleteMode ? nil : dragGesture)
+      .onTapGesture {
+        if game.isInDeleteMode {
+          game.deletePieceInSlot(slot)
+        }
+      }
+      // Add jiggle animation when in delete mode
+      .jiggle(game.isInDeleteMode)
       .onGeometryChange(in: .local) { draggableFrame in
         self.draggableFrame = draggableFrame
       }
@@ -226,6 +233,7 @@ struct DraggablePieceView: View {
       }
   }
 
+
   private func resetDragState(velocityMagnitude: CGFloat) {
     let returnToSlotAnimation = Animation.interpolatingSpring(
       duration: 0.5,
@@ -237,4 +245,6 @@ struct DraggablePieceView: View {
       selected = false
     }
   }
+
+
 }

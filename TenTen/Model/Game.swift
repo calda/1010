@@ -112,6 +112,9 @@ final class Game: Codable {
   /// Number of moves made (pieces placed) - used to track powerup timer
   private(set) var moveCount: Int = 0
 
+  /// Whether the game is in delete piece mode (pieces are jiggling and can be deleted)
+  private(set) var isInDeleteMode = false
+
   /// Whether or not there is a playable move based on the available pieces
   var hasPlayableMove: Bool {
     // Check available pieces
@@ -420,6 +423,9 @@ final class Game: Codable {
 
   /// Restores the most recent undo snapshot and removes it from the undo stack if permitted
   func undoLastMove() {
+    // Exit delete mode if active
+    exitDeleteMode()
+    
     // If there's already an active piece animation, queue this undo to be handled
     // after that animation ends. This is supported so that tapping the undo button
     // multiple times in quick succession works as expected.
@@ -573,6 +579,33 @@ final class Game: Codable {
     removePiece(inSlot: slot)
     reloadAvailablePiecesIfNeeded()
     return true
+  }
+
+  /// Enters delete piece mode - pieces will jiggle and be selectable for deletion
+  @discardableResult
+  func enterDeleteMode() -> Bool {
+    guard (powerups[.deletePiece] ?? 0) > 0 else { return false }
+    isInDeleteMode = true
+    return true
+  }
+
+  /// Exits delete piece mode
+  func exitDeleteMode() {
+    isInDeleteMode = false
+  }
+
+  /// Deletes a piece from the available pieces (used when in delete mode)
+  func deletePieceInSlot(_ slot: Int) {
+    guard isInDeleteMode else { return }
+    guard slot >= 0 && slot < availablePieces.count else { return }
+    guard availablePieces[slot] != nil else { return }
+    
+    // Only consume the powerup when a piece is actually deleted
+    guard usePowerup(.deletePiece) else { return }
+    
+    removePiece(inSlot: slot)
+    reloadAvailablePiecesIfNeeded()
+    exitDeleteMode()
   }
 
   // MARK: Private

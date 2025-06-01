@@ -141,7 +141,18 @@ struct PowerupButton: View {
   }
   
   private func action() {
-    
+    switch powerupType {
+    case .bonusPiece:
+      _ = game.useBonusPiecePowerup()
+    case .deletePiece:
+      if game.isInDeleteMode {
+        // Cancel delete mode if already active
+        game.exitDeleteMode()
+      } else {
+        // Enter delete mode
+        _ = game.enterDeleteMode()
+      }
+    }
   }
   
   private var iconName: String {

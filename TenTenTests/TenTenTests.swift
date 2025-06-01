@@ -506,6 +506,89 @@ struct TenTenTests {
     #expect(game.powerupTurnsRemaining == originalTurns)
   }
 
+  @Test
+  func deletePowerupFunctionality() {
+    let game = Game()
+    
+    // Start with no delete powerups
+    #expect((game.powerups[.deletePiece] ?? 0) == 0)
+    #expect(!game.isInDeleteMode)
+    #expect(!game.enterDeleteMode()) // Should fail with no powerups
+    
+    // Award a delete powerup
+    game.awardPowerup(.deletePiece)
+    #expect(game.powerups[.deletePiece] == 1)
+    
+    // Enter delete mode should succeed and not consume powerup yet
+    #expect(game.enterDeleteMode())
+    #expect(game.isInDeleteMode)
+    #expect(game.powerups[.deletePiece] == 1) // Not consumed yet
+    
+    // Set up some pieces to delete
+    game.updateAvailablePieces(to: [.oneByOne, .twoByTwo, .threeByThree])
+    #expect(game.availablePieces[0] != nil)
+    #expect(game.availablePieces[1] != nil)
+    #expect(game.availablePieces[2] != nil)
+  }
+
+  @Test
+  func deletePowerupCancellation() {
+    let game = Game()
+    game.awardPowerup(.deletePiece)
+    
+    // Enter delete mode
+    #expect(game.enterDeleteMode())
+    #expect(game.isInDeleteMode)
+    #expect(game.powerups[.deletePiece] == 1) // Not consumed
+    
+    // Exit delete mode without using it
+    game.exitDeleteMode()
+    #expect(!game.isInDeleteMode)
+    #expect(game.powerups[.deletePiece] == 1) // Should still have powerup
+  }
+
+  @Test
+  func deletePowerupWithUndo() {
+    let game = Game()
+    game.awardPowerup(.deletePiece)
+    
+    // Enter delete mode
+    game.enterDeleteMode()
+    #expect(game.isInDeleteMode)
+    
+    // Undo should exit delete mode
+    game.undoLastMove()
+    #expect(!game.isInDeleteMode)
+    #expect(game.powerups[.deletePiece] == 1) // Should not consume powerup
+  }
+
+  @Test
+  func deletePowerupMultipleAwards() {
+    let game = Game()
+    
+    // Award multiple delete powerups
+    game.awardPowerup(.deletePiece)
+    game.awardPowerup(.deletePiece)
+    game.awardPowerup(.deletePiece)
+    #expect(game.powerups[.deletePiece] == 3)
+    
+    // Use one
+    game.updateAvailablePieces(to: [.oneByOne, .twoByTwo, .threeByThree])
+    game.enterDeleteMode()
+    game.deletePieceInSlot(0)
+    #expect(game.powerups[.deletePiece] == 2)
+    
+    // Use another
+    game.enterDeleteMode()
+    game.deletePieceInSlot(1)
+    #expect(game.powerups[.deletePiece] == 1)
+    
+    // Cancel the third
+    game.enterDeleteMode()
+    game.exitDeleteMode()
+    #expect(game.powerups[.deletePiece] == 1) // Should not consume
+  }
+
 }
 
 // MARK: Helpers

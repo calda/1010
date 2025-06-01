@@ -233,4 +233,57 @@ extension View {
       }
     }
   }
+  
+}
+
+// MARK: - JiggleModifier
+
+struct JiggleModifier: ViewModifier {
+  let isJiggling: Bool
+  
+  @State private var jiggleRotation: Double = 0
+  @State private var jiggleDirection = 1.0
+  
+  func body(content: Content) -> some View {
+    content
+      .rotationEffect(.degrees(jiggleRotation))
+      .animation(.easeInOut(duration: 0.15), value: jiggleRotation)
+      .onChange(of: isJiggling) { _, isJiggling in
+        if isJiggling {
+          startJiggle()
+        } else {
+          stopJiggle()
+        }
+      }
+      .onChange(of: jiggleDirection) { _, _ in
+        if isJiggling {
+          withAnimation(.easeInOut(duration: 0.15)) {
+            jiggleRotation = jiggleDirection * 4
+          }
+        }
+      }
+  }
+  
+  private func startJiggle() {
+    jiggleDirection = 1.0
+    Timer.scheduledTimer(withTimeInterval: 0.15, repeats: true) { timer in
+      if isJiggling {
+        jiggleDirection *= -1
+      } else {
+        timer.invalidate()
+      }
+    }
+  }
+  
+  private func stopJiggle() {
+    withAnimation(.easeInOut(duration: 0.15)) {
+      jiggleRotation = 0
+    }
+  }
+}
+
+extension View {
+  func jiggle(_ isJiggling: Bool) -> some View {
+    modifier(JiggleModifier(isJiggling: isJiggling))
+  }
 }
