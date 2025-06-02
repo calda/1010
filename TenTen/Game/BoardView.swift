@@ -253,11 +253,11 @@ struct JiggleModifier: ViewModifier {
   private func startJiggle() {
     // Stop any existing timer first
     stopJiggle()
-    
+
     // Reset state
     jiggleDirection = 1.0
     jiggleRotation = 2.0 // Start with initial rotation
-    
+
     // Create new timer
     timer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { _ in
       if isJiggling {
@@ -272,7 +272,7 @@ struct JiggleModifier: ViewModifier {
     // Invalidate timer
     timer?.invalidate()
     timer = nil
-    
+
     // Reset rotation with animation
     withAnimation(.easeInOut(duration: 0.1)) {
       jiggleRotation = 0
@@ -289,6 +289,9 @@ extension View {
 // MARK: - PowerupOverlay
 
 struct PowerupOverlay: View {
+
+  // MARK: Internal
+
   var body: some View {
     let powerupVisible = game.powerupPosition != nil
       && !showingSettingsOverlay
@@ -298,14 +301,13 @@ struct PowerupOverlay: View {
         let tileFrame = boardLayout.tileFrames[powerupPosition] ?? .zero
         let isCollecting = game.collectingPowerup != nil
         let targetFrame = isCollecting ? (boardLayout.powerupButtonFrames[game.collectingPowerup!] ?? .zero) : .zero
-        
+
         PowerupStarView()
           .scaleEffect(animationScale)
           .rotationEffect(.degrees(animatingToButton ? 360 : 0))
           .position(
             x: animatingToButton ? targetFrame.midX : tileFrame.midX,
-            y: animatingToButton ? targetFrame.midY : tileFrame.midY
-          )
+            y: animatingToButton ? targetFrame.midY : tileFrame.midY)
           .transition(.opacity)
           .onChange(of: game.collectingPowerup) { _, newValue in
             if newValue != nil {
@@ -313,12 +315,12 @@ struct PowerupOverlay: View {
               withAnimation(.easeInOut(duration: 1.0)) {
                 animatingToButton = true
               }
-              
+
               // Animate scale up then down
               withAnimation(.easeOut(duration: 0.4)) {
                 animationScale = 3.0
               }
-              
+
               DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
                 withAnimation(.easeIn(duration: 0.6)) {
                   animationScale = 1.0
@@ -342,6 +344,8 @@ struct PowerupOverlay: View {
     }
   }
 
+  // MARK: Private
+
   @State private var animatingToButton = false
   @State private var animationScale = 1.0
   @Environment(\.game) private var game
@@ -349,4 +353,3 @@ struct PowerupOverlay: View {
   @Environment(\.powerupAnimationNamespace) private var powerupAnimationNamespace
   @Environment(\.showingSettingsOverlay) private var showingSettingsOverlay
 }
-

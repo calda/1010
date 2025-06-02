@@ -113,7 +113,7 @@ final class Game: Codable {
 
   /// Whether the game is in delete piece mode (pieces are jiggling and can be deleted)
   private(set) var isInDeleteMode = false
-  
+
   /// Current powerup being collected with animation
   private(set) var collectingPowerup: Powerup?
 
@@ -418,12 +418,194 @@ final class Game: Codable {
   {
     recordUndoSnapshot(action: .placePiece(piece: placedPiece, point: point, source: draggablePiece))
   }
-  
+
   /// Records an entry in the undo stack for a delete action.
   func recordUndoSnapshot(didDeletePieceInSlot slot: Int) {
     recordUndoSnapshot(action: .deletePiece(slot: slot))
   }
-  
+
+  /// Restores the most recent undo snapshot and removes it from the undo stack if permitted
+  func undoLastMove() {
+    // Exit delete mode if active
+    exitDeleteMode()
+
+    // If there's already an active piece animation, queue this undo to be handled
+    // after that animation ends. This is supported so that tapping the undo button
+    // multiple times in quick succession works as expected.
+    guard unplacedPiece == nil, placedPiece == nil else {
+      pendingUndoCount += 1
+      return
+    }
+
+    guard canUndoLastMove else {
+      pendingUndoCount = 0
+      return
+    }
+
+    let restoredSnapshot = undoHistory.removeFirst()
+
+    // Handle different types of undo actions
+    switch restoredSnapshot.action {
+    case .placePiece(let piece, let tile, _):
+      undoPlacePieceAction(piece: piece, tile: tile, restoredSnapshot: restoredSnapshot)
+    case .deletePiece:
+      undoDeletePieceAction(restoredSnapshot: restoredSnapshot)
+    }
+  }
+
+  /// Performs any pending undo action
+  func performPendingUndoIfNecessary() {
+    if pendingUndoCount > 1 {
+      pendingUndoCount -= 1
+      undoLastMove()
+    }
+  }
+
+  /// Animates any updates to tiles (removals or insertions) by temporarily
+  /// providing a `tileAnimation` for all points on the board.
+  func animateAllTileUpdates() {
+    for point in tiles.allPoints {
+      tileAnimations[point] = .spring
+    }
+
+    DispatchQueue.main.asyncAfter_syncInUnitTests(deadline: .now() + 0.1) {
+      self.tileAnimations = [:]
+    }
+  }
+
+  /// Spawns a powerup at a random empty tile if score has increased by 500 points
+  func spawnPowerupIfNeeded() {
+    guard powerupPosition == nil else { return }
+
+    #if targetEnvironment(simulator)
+    let lowerScoreThreshold = NSClassFromString("XCTest") == nil
+    #else
+    let lowerScoreThreshold = false
+    #endif
+
+    let pointsBetweenPowerups = lowerScoreThreshold ? 10 : 500
+    let turnsForPowerup = lowerScoreThreshold ? 20 : 5
+
+    guard (score - lastPowerupScore) >= pointsBetweenPowerups else { return }
+
+    let emptyTiles = tiles.allPoints.filter { tiles[$0].isEmpty }
+    let randomTile = emptyTiles.randomElement(seed: score + startDate.hashValue)
+
+    powerupPosition = randomTile
+    powerupTurnsRemaining = turnsForPowerup
+    lastPowerupScore = score
+  }
+
+  /// Decrements the powerup timer and removes powerup if time expires
+  func decrementPowerupTimer() {
+    guard powerupPosition != nil else { return }
+
+    powerupTurnsRemaining -= 1
+    if powerupTurnsRemaining <= 0 {
+      powerupPosition = nil
+    }
+  }
+
+  /// Checks if powerup should be collected when clearing rows/columns
+  func checkPowerupCollection(clearedTiles: Set<Point>) {
+    guard let powerupPos = powerupPosition else { return }
+
+    if clearedTiles.contains(powerupPos) {
+      // Start powerup collection animation
+      let randomPowerup = Powerup.allCases.randomElement(seed: score + startDate.hashValue)
+      collectingPowerup = randomPowerup
+
+      // Award powerup after animation reaches the button (0.9 seconds)
+      DispatchQueue.main.asyncAfter_syncInUnitTests(deadline: .now() + 0.9) { [self] in
+        awardPowerup(randomPowerup)
+      }
+
+      // Clean up after full animation (1 second)
+      DispatchQueue.main.asyncAfter_syncInUnitTests(deadline: .now() + 1.0) { [self] in
+        powerupPosition = nil
+        powerupTurnsRemaining = 0
+        collectingPowerup = nil
+      }
+    }
+  }
+
+  /// Awards a powerup to the player's inventory
+  func awardPowerup(_ powerupType: Powerup) {
+    powerups[powerupType, default: 0] += 1
+
+    // Generate a new bonus piece with unique ID when awarding bonus piece powerup
+    if powerupType == .bonusPiece {
+      generateNewBonusPiece()
+    }
+  }
+
+  /// Uses a powerup from the player's inventory
+  @discardableResult
+  func usePowerup(_ powerupType: Powerup) -> Bool {
+    guard let count = powerups[powerupType], count > 0 else { return false }
+    powerups[powerupType] = count - 1
+
+    // Generate a new bonus piece with unique ID when using bonus piece powerup
+    if powerupType == .bonusPiece {
+      generateNewBonusPiece()
+    }
+
+    return true
+  }
+
+  /// Uses the delete piece powerup to remove a piece from the available pieces
+  func useDeletePiecePowerup(slot: Int) -> Bool {
+    guard usePowerup(.deletePiece) else { return false }
+    guard slot >= 0, slot < availablePieces.count else { return false }
+
+    removePiece(.slot(slot))
+    reloadAvailablePiecesIfNeeded()
+    return true
+  }
+
+  /// Enters delete piece mode - pieces will jiggle and be selectable for deletion
+  @discardableResult
+  func enterDeleteMode() -> Bool {
+    guard (powerups[.deletePiece] ?? 0) > 0 else { return false }
+    isInDeleteMode = true
+    return true
+  }
+
+  /// Exits delete piece mode
+  func exitDeleteMode() {
+    isInDeleteMode = false
+  }
+
+  /// Deletes a piece from the available pieces (used when in delete mode)
+  func deletePieceInSlot(_ slot: Int) {
+    guard isInDeleteMode else { return }
+    guard slot >= 0, slot < availablePieces.count else { return }
+    guard availablePieces[slot] != nil else { return }
+
+    // Check if we have the powerup before proceeding
+    guard (powerups[.deletePiece] ?? 0) > 0 else { return }
+
+    // Record undo snapshot BEFORE consuming the powerup
+    recordUndoSnapshot(didDeletePieceInSlot: slot)
+
+    // Now consume the powerup
+    usePowerup(.deletePiece)
+
+    removePiece(.slot(slot))
+    exitDeleteMode()
+
+    // Wait a moment before regenerating new pieces if needed
+    // to prevent them from visually overlapping
+    DispatchQueue.main.asyncAfter_syncInUnitTests(deadline: .now() + 0.2) {
+      self.reloadAvailablePiecesIfNeeded()
+    }
+  }
+
+  // MARK: Private
+
+  /// The number of undo actions that are pending because another undo is already animating
+  private var pendingUndoCount = 0
+
   /// Records an entry in the undo stack with the specified action.
   private func recordUndoSnapshot(action: UndoAction) {
     // You can't undo after receiving new random pieces (except on the game over screen)
@@ -449,35 +631,6 @@ final class Game: Codable {
     }
   }
 
-  /// Restores the most recent undo snapshot and removes it from the undo stack if permitted
-  func undoLastMove() {
-    // Exit delete mode if active
-    exitDeleteMode()
-
-    // If there's already an active piece animation, queue this undo to be handled
-    // after that animation ends. This is supported so that tapping the undo button
-    // multiple times in quick succession works as expected.
-    guard unplacedPiece == nil, placedPiece == nil else {
-      pendingUndoCount += 1
-      return
-    }
-
-    guard canUndoLastMove else {
-      pendingUndoCount = 0
-      return
-    }
-
-    let restoredSnapshot = undoHistory.removeFirst()
-    
-    // Handle different types of undo actions
-    switch restoredSnapshot.action {
-    case .placePiece(let piece, let tile, _):
-      undoPlacePieceAction(piece: piece, tile: tile, restoredSnapshot: restoredSnapshot)
-    case .deletePiece:
-      undoDeletePieceAction(restoredSnapshot: restoredSnapshot)
-    }
-  }
-  
   /// Undoes a piece placement action
   private func undoPlacePieceAction(piece: RandomPiece, tile: Point, restoredSnapshot: UndoSnapshot) {
     unplacedPiece = (piece: piece, tile: tile, hidden: false)
@@ -529,173 +682,20 @@ final class Game: Codable {
       animateUnplacedPiece()
     }
   }
-  
+
   /// Undoes a piece deletion action
   private func undoDeletePieceAction(restoredSnapshot: UndoSnapshot) {
     // Restore the game state (this will restore the deleted piece and the powerup)
     restore(restoredSnapshot)
-    
+
     // Complete the undo immediately since there's no piece animation needed
     performPendingUndoIfNecessary()
   }
 
-  /// Performs any pending undo action
-  func performPendingUndoIfNecessary() {
-    if pendingUndoCount > 1 {
-      pendingUndoCount -= 1
-      undoLastMove()
-    }
-  }
-
-  /// Animates any updates to tiles (removals or insertions) by temporarily
-  /// providing a `tileAnimation` for all points on the board.
-  func animateAllTileUpdates() {
-    for point in tiles.allPoints {
-      tileAnimations[point] = .spring
-    }
-
-    DispatchQueue.main.asyncAfter_syncInUnitTests(deadline: .now() + 0.1) {
-      self.tileAnimations = [:]
-    }
-  }
-
-  /// Spawns a powerup at a random empty tile if score has increased by 500 points
-  func spawnPowerupIfNeeded() {
-    guard powerupPosition == nil else { return }
-
-    #if targetEnvironment(simulator)
-    let lowerScoreThreshold = NSClassFromString("XCTest") == nil
-    #else
-    let lowerScoreThreshold = false
-    #endif
-    
-    let pointsBetweenPowerups = lowerScoreThreshold ? 10 : 500
-    let turnsForPowerup = lowerScoreThreshold ? 20 : 5
-    
-    guard (score - lastPowerupScore) >= pointsBetweenPowerups else { return }
-
-    let emptyTiles = tiles.allPoints.filter { tiles[$0].isEmpty }
-    let randomTile = emptyTiles.randomElement(seed: score + startDate.hashValue)
-    
-    powerupPosition = randomTile
-    powerupTurnsRemaining = turnsForPowerup
-    lastPowerupScore = score
-  }
-
-  /// Decrements the powerup timer and removes powerup if time expires
-  func decrementPowerupTimer() {
-    guard powerupPosition != nil else { return }
-
-    powerupTurnsRemaining -= 1
-    if powerupTurnsRemaining <= 0 {
-      powerupPosition = nil
-    }
-  }
-
-  /// Checks if powerup should be collected when clearing rows/columns
-  func checkPowerupCollection(clearedTiles: Set<Point>) {
-    guard let powerupPos = powerupPosition else { return }
-
-    if clearedTiles.contains(powerupPos) {
-      // Start powerup collection animation
-      let randomPowerup = Powerup.allCases.randomElement(seed: score + startDate.hashValue)
-      collectingPowerup = randomPowerup
-      
-      // Award powerup after animation reaches the button (0.9 seconds)
-      DispatchQueue.main.asyncAfter_syncInUnitTests(deadline: .now() + 0.9) { [self] in
-        awardPowerup(randomPowerup)
-      }
-      
-      // Clean up after full animation (1 second)
-      DispatchQueue.main.asyncAfter_syncInUnitTests(deadline: .now() + 1.0) { [self] in
-        powerupPosition = nil
-        powerupTurnsRemaining = 0
-        collectingPowerup = nil
-      }
-    }
-  }
-
-  /// Awards a powerup to the player's inventory
-  func awardPowerup(_ powerupType: Powerup) {
-    powerups[powerupType, default: 0] += 1
-    
-    // Generate a new bonus piece with unique ID when awarding bonus piece powerup
-    if powerupType == .bonusPiece {
-      generateNewBonusPiece()
-    }
-  }
-
-  /// Uses a powerup from the player's inventory
-  @discardableResult
-  func usePowerup(_ powerupType: Powerup) -> Bool {
-    guard let count = powerups[powerupType], count > 0 else { return false }
-    powerups[powerupType] = count - 1
-    
-    // Generate a new bonus piece with unique ID when using bonus piece powerup
-    if powerupType == .bonusPiece {
-      generateNewBonusPiece()
-    }
-    
-    return true
-  }
-  
   /// Generates a new bonus piece with a unique ID
   private func generateNewBonusPiece() {
     bonusPiece = RandomPiece(id: UUID(), piece: .oneByOne)
   }
-
-  /// Uses the delete piece powerup to remove a piece from the available pieces
-  func useDeletePiecePowerup(slot: Int) -> Bool {
-    guard usePowerup(.deletePiece) else { return false }
-    guard slot >= 0, slot < availablePieces.count else { return false }
-
-    removePiece(.slot(slot))
-    reloadAvailablePiecesIfNeeded()
-    return true
-  }
-
-  /// Enters delete piece mode - pieces will jiggle and be selectable for deletion
-  @discardableResult
-  func enterDeleteMode() -> Bool {
-    guard (powerups[.deletePiece] ?? 0) > 0 else { return false }
-    isInDeleteMode = true
-    return true
-  }
-
-  /// Exits delete piece mode
-  func exitDeleteMode() {
-    isInDeleteMode = false
-  }
-
-  /// Deletes a piece from the available pieces (used when in delete mode)
-  func deletePieceInSlot(_ slot: Int) {
-    guard isInDeleteMode else { return }
-    guard slot >= 0, slot < availablePieces.count else { return }
-    guard availablePieces[slot] != nil else { return }
-
-    // Check if we have the powerup before proceeding
-    guard (powerups[.deletePiece] ?? 0) > 0 else { return }
-
-    // Record undo snapshot BEFORE consuming the powerup
-    recordUndoSnapshot(didDeletePieceInSlot: slot)
-
-    // Now consume the powerup
-    usePowerup(.deletePiece)
-
-    removePiece(.slot(slot))
-    exitDeleteMode()
-    
-    // Wait a moment before regenerating new pieces if needed
-    // to prevent them from visually overlapping
-    DispatchQueue.main.asyncAfter_syncInUnitTests(deadline: .now() + 0.2) {
-      self.reloadAvailablePiecesIfNeeded()
-    }
-  }
-
-  // MARK: Private
-
-  /// The number of undo actions that are pending because another undo is already animating
-  private var pendingUndoCount = 0
 
   private func awardAchievement(_ achievement: Achievement) {
     guard !achievements.contains(achievement) else { return }
@@ -806,17 +806,18 @@ struct UndoSnapshot: Codable {
         // Bonus piece moves can always be undone during gameplay
         true
       }
+
     case .deletePiece:
       // Delete actions can always be undone during gameplay
       true
     }
   }
 
-  // Legacy computed properties for backward compatibility
+  /// Legacy computed properties for backward compatibility
   var placedPiece: RandomPiece {
     switch action {
     case .placePiece(let piece, _, _):
-      return piece
+      piece
     case .deletePiece:
       fatalError("No placed piece for delete action")
     }
@@ -825,7 +826,7 @@ struct UndoSnapshot: Codable {
   var placedPiecePoint: Point {
     switch action {
     case .placePiece(_, let point, _):
-      return point
+      point
     case .deletePiece:
       fatalError("No placed piece point for delete action")
     }
@@ -834,7 +835,7 @@ struct UndoSnapshot: Codable {
   var placedPieceSource: DraggablePiece {
     switch action {
     case .placePiece(_, _, let source):
-      return source
+      source
     case .deletePiece:
       fatalError("No placed piece source for delete action")
     }

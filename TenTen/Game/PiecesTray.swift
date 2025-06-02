@@ -111,33 +111,33 @@ struct DraggablePieceView: View {
         y: dragOffset.height + selectionOffset.height)
       // X delete button overlay (only for slot pieces in delete mode)
       .overlay(alignment: .topTrailing) {
-        if game.isInDeleteMode && canDelete {
+        if game.isInDeleteMode, canDelete {
           DeleteXButton()
             .scaleEffect(scale)
             .offset(x: 8, y: -8) // Offset to position at top-right corner
             .allowsHitTesting(false) // Let taps pass through to the piece
         }
       }
-    // Enable the drag gesture. Have the entire space around the piece be draggable.
-    .frame(maxWidth: .infinity, maxHeight: .infinity)
-    .contentShape(Rectangle())
-    .gesture(game.isInDeleteMode ? nil : dragGesture)
-    .onTapGesture {
-      if game.isInDeleteMode {
-        switch draggablePiece {
-        case .slot(let slot):
-          game.deletePieceInSlot(slot)
-        case .bonusPiece:
-          // Bonus pieces can't be deleted in delete mode
-          break
+      // Enable the drag gesture. Have the entire space around the piece be draggable.
+      .frame(maxWidth: .infinity, maxHeight: .infinity)
+      .contentShape(Rectangle())
+      .gesture(game.isInDeleteMode ? nil : dragGesture)
+      .onTapGesture {
+        if game.isInDeleteMode {
+          switch draggablePiece {
+          case .slot(let slot):
+            game.deletePieceInSlot(slot)
+          case .bonusPiece:
+            // Bonus pieces can't be deleted in delete mode
+            break
+          }
         }
       }
-    }
-    // Add jiggle animation when in delete mode
-    .jiggle(game.isInDeleteMode)
-    .onGeometryChange(in: .local) { draggableFrame in
-      self.draggableFrame = draggableFrame
-    }
+      // Add jiggle animation when in delete mode
+      .jiggle(game.isInDeleteMode)
+      .onGeometryChange(in: .local) { draggableFrame in
+        self.draggableFrame = draggableFrame
+      }
       // When the game over sheet is presented, it can cancel any active drag gesture,
       // which would leave the piece floating above the board. To avoid this, manually
       // reset the gesture state.
@@ -215,14 +215,14 @@ struct DraggablePieceView: View {
     // Regular slot pieces are always visible
     return 1
   }
-  
+
   /// Whether this piece can be deleted in delete mode
   private var canDelete: Bool {
     switch draggablePiece {
     case .slot:
-      return true
+      true
     case .bonusPiece:
-      return false // Bonus pieces can't be deleted
+      false // Bonus pieces can't be deleted
     }
   }
 
@@ -307,7 +307,7 @@ struct DeleteXButton: View {
         .fill(Color.red)
         .frame(width: 20, height: 20)
         .shadow(color: .black.opacity(0.2), radius: 1, x: 0, y: 1)
-      
+
       // X symbol
       Image(systemName: "xmark")
         .font(.system(size: 10, weight: .bold))

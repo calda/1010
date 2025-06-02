@@ -113,7 +113,6 @@ struct PowerupButton: View {
             Image(systemName: iconName)
               .font(.system(size: 20, weight: .bold))
               .foregroundColor(isEnabled ? .gray : .gray.opacity(0.5))
-              
           }
           .overlay(alignment: .bottomTrailing) {
             Text(count.formatted(.number))
@@ -137,7 +136,7 @@ struct PowerupButton: View {
           DispatchQueue.main.async {
             badgeVisible = true
           }
-          
+
           // Bounce the button
           buttonScale = 1.2
           DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {

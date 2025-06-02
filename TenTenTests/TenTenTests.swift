@@ -559,7 +559,7 @@ struct TenTenTests {
     #expect(!game.isInDeleteMode)
     #expect(game.powerups[.deletePiece] == 1) // Should not consume powerup
   }
-  
+
   @Test
   func undoDeletePowerup() {
     let game = Game()
@@ -587,7 +587,6 @@ struct TenTenTests {
     #expect(game.availablePieces.map { $0?.id } == initialPieces)
   }
 
-  
   @Test
   func deletePieceUndoCanBeDoneAfterPieceRegeneration() {
     let game = Game()
