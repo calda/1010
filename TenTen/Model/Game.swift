@@ -600,9 +600,13 @@ final class Game: Codable {
       // Start powerup collection animation
       let randomPowerup = Powerup.allCases.randomElement(seed: score + startDate.hashValue)
       collectingPowerup = randomPowerup
-      awardPowerup(randomPowerup)
       
-      // Wait for the animation to finish (1 second)
+      // Award powerup after animation reaches the button (0.9 seconds)
+      DispatchQueue.main.asyncAfter_syncInUnitTests(deadline: .now() + 0.9) { [self] in
+        awardPowerup(randomPowerup)
+      }
+      
+      // Clean up after full animation (1 second)
       DispatchQueue.main.asyncAfter_syncInUnitTests(deadline: .now() + 1.0) { [self] in
         powerupPosition = nil
         powerupTurnsRemaining = 0

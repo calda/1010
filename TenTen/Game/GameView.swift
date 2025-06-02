@@ -37,7 +37,7 @@ struct GameView: View {
         .padding(.bottom, 10)
 
       PowerupButtons()
-        .padding(.bottom, 10)
+        .padding(.bottom, 15)
     }
     .overlay {
       PowerupOverlay()
@@ -124,19 +124,34 @@ struct PowerupButton: View {
               .background(Circle().fill(.blue))
               .offset(x: 4, y: 4)
               .scaleEffect(badgeVisible ? 1 : 0.4)
-              .opacity(badgeVisible ? 1 : 0)
-              .animation(.bouncy, value: badgeVisible)
+              .opacity(badgeVisible && count > 0 ? 1 : 0)
+              .animation(hasAppeared ? .bouncy : nil, value: badgeVisible)
           }
         }
       }
       .disabled(!isEnabled || powerupType == .bonusPiece)
-      .onChange(of: isEnabled) { _, newValue in
-        DispatchQueue.main.async {
-          badgeVisible = newValue
+      .onChange(of: count) { oldValue, newValue in
+        // Only animate badge when count increases (powerup collected)
+        if newValue > oldValue {
+          badgeVisible = false
+          DispatchQueue.main.async {
+            badgeVisible = true
+          }
+          
+          // Bounce the button
+          buttonScale = 1.2
+          DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+            buttonScale = 1.0
+          }
         }
       }
       .onAppear {
+        // Initialize without animation
         badgeVisible = isEnabled
+        // Mark as appeared after a brief delay to enable animations
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+          hasAppeared = true
+        }
       }
       // Invisible draggable bonus piece for bonus piece button
       if powerupType == .bonusPiece {
@@ -150,8 +165,9 @@ struct PowerupButton: View {
       }
     }
     .opacity(showingSettingsOverlay ? 0 : 1)
-    .scaleEffect(showingSettingsOverlay ? 0 : 1)
+    .scaleEffect(showingSettingsOverlay ? 0 : buttonScale)
     .animation(.spring, value: showingSettingsOverlay)
+    .animation(.spring(response: 0.3, dampingFraction: 0.6), value: buttonScale)
     .onGeometryChange(in: .named("GameView")) { buttonFrame in
       boardLayout.powerupButtonFrames[powerupType] = buttonFrame
     }
@@ -164,6 +180,8 @@ struct PowerupButton: View {
   // MARK: Private
 
   @State private var badgeVisible = false
+  @State private var hasAppeared = false
+  @State private var buttonScale: CGFloat = 1.0
 
   @Environment(\.game) private var game
   @Environment(\.boardLayout) private var boardLayout
