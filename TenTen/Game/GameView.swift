@@ -41,7 +41,6 @@ struct GameView: View {
     }
     .overlay {
       PowerupOverlay()
-        .animation(.spring(response: 0.6, dampingFraction: 0.7), value: game.powerupPosition)
     }
     .coordinateSpace(.named("GameView"))
     .environment(\.game, game)
@@ -115,14 +114,6 @@ struct PowerupButton: View {
               .font(.system(size: 20, weight: .bold))
               .foregroundColor(isEnabled ? .gray : .gray.opacity(0.5))
               
-            if game.collectingPowerup == powerupType {
-              PowerupStarView()
-                .matchedGeometryEffect(
-                  id: "powerup",
-                  in: powerupAnimationNamespace(),
-                  isSource: true
-                )
-            }
           }
           .overlay(alignment: .bottomTrailing) {
             Text(count.formatted(.number))
@@ -161,6 +152,9 @@ struct PowerupButton: View {
     .opacity(showingSettingsOverlay ? 0 : 1)
     .scaleEffect(showingSettingsOverlay ? 0 : 1)
     .animation(.spring, value: showingSettingsOverlay)
+    .onGeometryChange(in: .named("GameView")) { buttonFrame in
+      boardLayout.powerupButtonFrames[powerupType] = buttonFrame
+    }
   }
 
   var count: Int {
@@ -172,6 +166,7 @@ struct PowerupButton: View {
   @State private var badgeVisible = false
 
   @Environment(\.game) private var game
+  @Environment(\.boardLayout) private var boardLayout
   @Environment(\.powerupAnimationNamespace) private var powerupAnimationNamespace
   @Environment(\.showingSettingsOverlay) private var showingSettingsOverlay
 

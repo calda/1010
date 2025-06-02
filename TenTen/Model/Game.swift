@@ -602,8 +602,8 @@ final class Game: Codable {
       collectingPowerup = randomPowerup
       awardPowerup(randomPowerup)
       
-      // Wait for the matched transition animation to finish
-      DispatchQueue.main.asyncAfter_syncInUnitTests(deadline: .now() + 0.75) { [self] in
+      // Wait for the animation to finish (1 second)
+      DispatchQueue.main.asyncAfter_syncInUnitTests(deadline: .now() + 1.0) { [self] in
         powerupPosition = nil
         powerupTurnsRemaining = 0
         collectingPowerup = nil

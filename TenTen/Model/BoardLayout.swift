@@ -16,6 +16,9 @@ final class BoardLayout {
 
   /// The frame of the board in the global coordinate space
   var boardFrame = CGRect.zero
+  
+  /// The frames of powerup buttons in the global coordinate space
+  var powerupButtonFrames: [Powerup: CGRect] = [:]
 
   /// The size of tiles on the game board
   var boardTileSize: CGFloat {

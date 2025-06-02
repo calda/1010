@@ -74,33 +74,6 @@ struct BoardView: View {
   }
 }
 
-// MARK: - PowerupOverlay
-
-struct PowerupOverlay: View {
-  var body: some View {
-    let powerupVisible = game.powerupPosition != nil
-      && game.collectingPowerup == nil
-      && !showingSettingsOverlay
-
-    ZStack {
-      if powerupVisible, let powerupPosition = game.powerupPosition {
-        let tileFrame = boardLayout.tileFrames[powerupPosition] ?? .zero
-
-        PowerupStarView()
-          .transition(.opacity)
-          .position(x: tileFrame.midX, y: tileFrame.midY)
-          .matchedGeometryEffect(id: "powerup",in: powerupAnimationNamespace())
-      }
-    }
-    .animation(.spring, value: powerupVisible)
-  }
-
-  @Environment(\.game) private var game
-  @Environment(\.boardLayout) private var boardLayout
-  @Environment(\.powerupAnimationNamespace) private var powerupAnimationNamespace
-  @Environment(\.showingSettingsOverlay) private var showingSettingsOverlay
-}
-
 // MARK: - PieceView
 
 struct PieceView: View {
@@ -205,7 +178,7 @@ struct PowerupStarView: View {
 
   // MARK: Private
 
-  @State private var visible = false
+  @State private var visible = true
   @State private var pulsing = false
 }
 
@@ -312,3 +285,68 @@ extension View {
     modifier(JiggleModifier(isJiggling: isJiggling))
   }
 }
+
+// MARK: - PowerupOverlay
+
+struct PowerupOverlay: View {
+  var body: some View {
+    let powerupVisible = game.powerupPosition != nil
+      && !showingSettingsOverlay
+
+    ZStack {
+      if powerupVisible, let powerupPosition = game.powerupPosition {
+        let tileFrame = boardLayout.tileFrames[powerupPosition] ?? .zero
+        let isCollecting = game.collectingPowerup != nil
+        let targetFrame = isCollecting ? (boardLayout.powerupButtonFrames[game.collectingPowerup!] ?? .zero) : .zero
+        
+        PowerupStarView()
+          .scaleEffect(animationScale)
+          .rotationEffect(.degrees(animatingToButton ? 360 : 0))
+          .position(
+            x: animatingToButton ? targetFrame.midX : tileFrame.midX,
+            y: animatingToButton ? targetFrame.midY : tileFrame.midY
+          )
+          .transition(.opacity)
+          .onChange(of: game.collectingPowerup) { _, newValue in
+            if newValue != nil {
+              // Start animation when collection begins
+              withAnimation(.easeInOut(duration: 1.0)) {
+                animatingToButton = true
+              }
+              
+              // Animate scale up then down
+              withAnimation(.easeOut(duration: 0.4)) {
+                animationScale = 3.0
+              }
+              
+              DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                withAnimation(.easeIn(duration: 0.6)) {
+                  animationScale = 1.0
+                }
+              }
+            }
+          }
+          .onAppear {
+            // Reset animation state when showing new powerup
+            animatingToButton = false
+            animationScale = 1.0
+          }
+      }
+    }
+    .animation(.spring, value: powerupVisible)
+    .onChange(of: game.collectingPowerup) { _, newValue in
+      if newValue == nil {
+        animatingToButton = false
+        animationScale = 1.0
+      }
+    }
+  }
+
+  @State private var animatingToButton = false
+  @State private var animationScale = 1.0
+  @Environment(\.game) private var game
+  @Environment(\.boardLayout) private var boardLayout
+  @Environment(\.powerupAnimationNamespace) private var powerupAnimationNamespace
+  @Environment(\.showingSettingsOverlay) private var showingSettingsOverlay
+}
+
