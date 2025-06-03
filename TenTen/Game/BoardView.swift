@@ -160,17 +160,25 @@ struct PowerupStarView: View {
             endPoint: .bottomTrailing))
         .shadow(color: .black.opacity(0.5), radius: 1)
     }
-    .scaleEffect(visible ? 1.0 : 0)
+    .scaleEffect(visible ? bounceScale : 0)
     .opacity(visible ? 1.0 : 0)
     .scaleEffect(pulsing ? 1.2 : 1.0)
     .animation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true), value: pulsing)
-    .animation(.spring(duration: 0.3), value: visible)
+    .animation(.spring(response: 0.8, dampingFraction: 0.6), value: bounceScale)
+    .animation(.spring(duration: 0.5), value: visible)
     .onAppear {
       DispatchQueue.main.async {
         visible = true
+        // Start with overshoot for bounce effect
+        bounceScale = 2.25
       }
 
+      // Settle to normal size
       DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+        bounceScale = 1
+      }
+
+      DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
         pulsing = true
       }
     }
@@ -178,7 +186,8 @@ struct PowerupStarView: View {
 
   // MARK: Private
 
-  @State private var visible = true
+  @State private var visible = false
+  @State private var bounceScale: CGFloat = 0
   @State private var pulsing = false
 }
 
