@@ -90,6 +90,12 @@ struct PowerupButtons: View {
       PowerupButton(powerupType: .bonusPiece)
       PowerupButton(powerupType: .deletePiece)
     }
+    .opacity(hasPowerups ? 1 : 0)
+    .animation(.easeInOut(duration: 0.15), value: hasPowerups)
+  }
+
+  private var hasPowerups: Bool {
+    game.powerups.values.contains { $0 > 0 }
   }
 }
 
