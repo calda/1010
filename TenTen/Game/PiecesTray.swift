@@ -121,7 +121,7 @@ struct DraggablePieceView: View {
       // Enable the drag gesture. Have the entire space around the piece be draggable.
       .frame(maxWidth: .infinity, maxHeight: .infinity)
       .contentShape(Rectangle())
-      .gesture(game.isInDeleteMode ? nil : dragGesture)
+      .gesture(dragGestureEnabled ? dragGesture : nil)
       .onTapGesture {
         if game.isInDeleteMode {
           switch draggablePiece {
@@ -141,15 +141,15 @@ struct DraggablePieceView: View {
       // When the game over sheet is presented, it can cancel any active drag gesture,
       // which would leave the piece floating above the board. To avoid this, manually
       // reset the gesture state.
-      .onChange(of: showingGameOverScreen) { _, showingGameOverScreen in
-        if showingGameOverScreen {
+      .onChange(of: dragGestureEnabled) { _, dragGestureEnabled in
+        if !dragGestureEnabled {
           resetDragState(velocityMagnitude: 0)
         }
       }
       // Ensure that the drag gesture is definitely ended when the game over screen
       // is presented, or it could be possible to continue dragging the piece underneath
       // the game over sheet.
-      .disabled(showingGameOverScreen)
+      .disabled(!interactionEnabled)
       // To avoid race conditions when placing a piece immediately after performing an undo,
       // cancel any active drag gesture when triggering an undo.
       .disabled(game.unplacedPiece != nil)
@@ -166,6 +166,7 @@ struct DraggablePieceView: View {
   @Environment(\.boardLayout) private var boardLayout
   @Environment(\.placedPieceNamespace) private var placedPieceNamespace
   @Environment(\.showingGameOverScreen) private var showingGameOverScreen
+  @Environment(\.scenePhase) private var scenePhase
   @State private var dragOffset = CGSize.zero
   @State private var selectionOffset = CGSize.zero
   @State private var frame = CGRect.zero
@@ -226,6 +227,16 @@ struct DraggablePieceView: View {
     }
   }
 
+  private var dragGestureEnabled: Bool {
+    interactionEnabled
+      && !game.isInDeleteMode
+  }
+  
+  private var interactionEnabled: Bool {
+    scenePhase == .active
+      && !showingGameOverScreen
+  }
+  
   private var dragGesture: some Gesture {
     DragGesture(minimumDistance: 0)
       .onChanged { value in

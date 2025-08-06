@@ -436,6 +436,40 @@ struct TenTenTests {
   }
 
   @Test
+  func earnPowerupOnLastTurn() throws {
+    let game = Game()
+    game.spawnPowerupIfNeeded(newPowerupPosition: Point(x: 0, y: 0))
+    #expect(game.powerupPosition != nil)
+    #expect(game.powerupTurnsRemaining == 5)
+    #expect(game.powerups.isEmpty)
+    
+    game.updateAvailablePieces(to: [.threeByThree, .threeByThree, .threeByThree])
+
+    game.addPiece(inSlot: 0, at: Point(x: 0, y: 0))
+    #expect(game.powerupTurnsRemaining == 4)
+    #expect(game.powerupPosition != nil)
+
+    game.addPiece(inSlot: 1, at: Point(x: 3, y: 0))
+    #expect(game.powerupTurnsRemaining == 3)
+    #expect(game.powerupPosition != nil)
+
+    game.addPiece(inSlot: 2, at: Point(x: 6, y: 0))
+    #expect(game.powerupTurnsRemaining == 2)
+    #expect(game.powerupPosition != nil)
+
+    game.updateAvailablePieces(to: [.oneByOne, .oneByOne, .oneByOne])
+
+    game.addPiece(inSlot: 0, at: Point(x: 5, y: 5))
+    #expect(game.powerupTurnsRemaining == 1)
+    #expect(game.powerupPosition != nil)
+
+    game.addPiece(inSlot: 1, at: Point(x: 9, y: 0))
+    #expect(game.powerups.count == 1)
+    #expect(game.powerupTurnsRemaining == 0)
+    #expect(game.powerupPosition == nil)
+  }
+  
+  @Test
   func powerupCollectionWhenRowCleared() {
     let game = Game()
     game.updateScore(to: 500)

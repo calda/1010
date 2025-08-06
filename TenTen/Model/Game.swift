@@ -190,7 +190,6 @@ final class Game: Codable {
 
     increaseScore(by: piece.points)
     moveCount += 1
-    decrementPowerupTimer()
     placedPiece = (piece: randomPiece, targetTile: point, dragDecelerationAnimation: dragDecelerationAnimation)
 
     // Wait for the drag deceleration animation (0.125s) to finish.
@@ -474,7 +473,7 @@ final class Game: Codable {
   }
 
   /// Spawns a powerup at a random empty tile if score has increased by 500 points
-  func spawnPowerupIfNeeded() {
+  func spawnPowerupIfNeeded(newPowerupPosition: Point? = nil) {
     guard powerupPosition == nil else { return }
 
     #if targetEnvironment(simulator)
@@ -486,10 +485,10 @@ final class Game: Codable {
     let pointsBetweenPowerups = lowerScoreThreshold ? 10 : 500
     let turnsForPowerup = lowerScoreThreshold ? 20 : 5
 
-    guard (score - lastPowerupScore) >= pointsBetweenPowerups else { return }
+    guard ((score - lastPowerupScore) >= pointsBetweenPowerups) || newPowerupPosition != nil else { return }
 
     let emptyTiles = tiles.allPoints.filter { tiles[$0].isEmpty }
-    let randomTile = emptyTiles.randomElement(seed: score + startDate.hashValue)
+    let randomTile = newPowerupPosition ?? emptyTiles.randomElement(seed: score + startDate.hashValue)
 
     powerupPosition = randomTile
     powerupTurnsRemaining = turnsForPowerup
@@ -526,6 +525,8 @@ final class Game: Codable {
         powerupTurnsRemaining = 0
         collectingPowerup = nil
       }
+    } else {
+      decrementPowerupTimer()
     }
   }
 
