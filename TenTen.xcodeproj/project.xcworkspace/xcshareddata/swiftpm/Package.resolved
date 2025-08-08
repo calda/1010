@@ -1,5 +1,5 @@
 {
-  "originHash" : "2a0ff1b605db7c1ac6444989148801b497469ada3d170a15728f433a1bb6b145",
+  "originHash" : "a63ac6c906581c6f1d03322a5815e1637c3ddc4093e54c6ebb507a8cfae31a3c",
   "pins" : [
     {
       "identity" : "debouncedonchange",
@@ -16,7 +16,7 @@
       "location" : "https://github.com/airbnb/swift",
       "state" : {
         "branch" : "master",
-        "revision" : "608b922e596a526d7479274f5f1b028c418e6226"
+        "revision" : "a702f58d25ca2d1d58026ccf12fac8ccb6e2b475"
       }
     },
     {

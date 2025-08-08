@@ -51,16 +51,18 @@ struct PieceSlot: View {
           piece: piece.piece,
           id: piece.id,
           draggablePiece: .slot(slot),
-          selected: $selected)
-          .frame(maxWidth: .infinity, maxHeight: .infinity)
-          .transition(.asymmetric(
-            insertion: .scale.combined(with: .opacity),
-            removal: .identity))
-          // Use a random UUID as the ID for each random piece's view.
-          // This prevents the pieces from before and after generating new pieces
-          // from being considered the same view, and the new piece receiving
-          // animations from the piece that was just placed on the board.
-          .id(piece.id)
+          selected: $selected,
+        )
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .transition(.asymmetric(
+          insertion: .scale.combined(with: .opacity),
+          removal: .identity,
+        ))
+        // Use a random UUID as the ID for each random piece's view.
+        // This prevents the pieces from before and after generating new pieces
+        // from being considered the same view, and the new piece receiving
+        // animations from the piece that was just placed on the board.
+        .id(piece.id)
       } else {
         Color.clear
       }
@@ -72,7 +74,8 @@ struct PieceSlot: View {
       game.unplacedPiece?.piece == piece
         ? nil
         : .bouncy(duration: 0.35, extraBounce: 0.1).delay(0.075 * Double(slot)),
-      value: piece)
+      value: piece,
+    )
   }
 
   // MARK: Private
@@ -97,75 +100,79 @@ struct DraggablePieceView: View {
     PieceView(
       piece: piece,
       tileSize: boardLayout.boardTileSize * defaultScale,
-      scale: defaultScale)
-      .matchedGeometryEffect(
-        id: game.placedPiece?.piece.id == id ? "placed piece" : draggablePieceIdentifier,
-        in: placedPieceNamespace(),
-        anchor: .topLeading,
-        isSource: false)
-      .matchedGeometryEffect(
-        id: game.unplacedPiece?.piece.id == id ? "unplaced piece" : draggablePieceIdentifier,
-        in: placedPieceNamespace(),
-        anchor: .topLeading,
-        isSource: false)
-      .opacity(opacity)
-      // Track the view's frame in the global coordinate space
-      .onGeometryChange(in: .named("GameView")) { frame in
-        self.frame = frame
+      scale: defaultScale,
+    )
+    .matchedGeometryEffect(
+      id: game.placedPiece?.piece.id == id ? "placed piece" : draggablePieceIdentifier,
+      in: placedPieceNamespace(),
+      anchor: .topLeading,
+      isSource: false,
+    )
+    .matchedGeometryEffect(
+      id: game.unplacedPiece?.piece.id == id ? "unplaced piece" : draggablePieceIdentifier,
+      in: placedPieceNamespace(),
+      anchor: .topLeading,
+      isSource: false,
+    )
+    .opacity(opacity)
+    // Track the view's frame in the global coordinate space
+    .onGeometryChange(in: .named("GameView")) { frame in
+      self.frame = frame
+    }
+    .scaleEffect(scale)
+    .offset(
+      x: dragOffset.width + selectionOffset.width,
+      y: dragOffset.height + selectionOffset.height,
+    )
+    // X delete button overlay (only for slot pieces in delete mode)
+    .overlay(alignment: .topTrailing) {
+      if game.isInDeleteMode, canDelete {
+        DeleteXButton()
+          .scaleEffect(scale)
+          .offset(x: 8, y: -8) // Offset to position at top-right corner
+          .allowsHitTesting(false) // Let taps pass through to the piece
       }
-      .scaleEffect(scale)
-      .offset(
-        x: dragOffset.width + selectionOffset.width,
-        y: dragOffset.height + selectionOffset.height)
-      // X delete button overlay (only for slot pieces in delete mode)
-      .overlay(alignment: .topTrailing) {
-        if game.isInDeleteMode, canDelete {
-          DeleteXButton()
-            .scaleEffect(scale)
-            .offset(x: 8, y: -8) // Offset to position at top-right corner
-            .allowsHitTesting(false) // Let taps pass through to the piece
+    }
+    // Enable the drag gesture. Have the entire space around the piece be draggable.
+    .frame(maxWidth: .infinity, maxHeight: .infinity)
+    .contentShape(Rectangle())
+    .gesture(dragGestureEnabled ? dragGesture : nil)
+    .onTapGesture {
+      if game.isInDeleteMode {
+        switch draggablePiece {
+        case .slot(let slot):
+          game.deletePieceInSlot(slot)
+        case .bonusPiece:
+          // Bonus pieces can't be deleted in delete mode
+          break
         }
       }
-      // Enable the drag gesture. Have the entire space around the piece be draggable.
-      .frame(maxWidth: .infinity, maxHeight: .infinity)
-      .contentShape(Rectangle())
-      .gesture(dragGestureEnabled ? dragGesture : nil)
-      .onTapGesture {
-        if game.isInDeleteMode {
-          switch draggablePiece {
-          case .slot(let slot):
-            game.deletePieceInSlot(slot)
-          case .bonusPiece:
-            // Bonus pieces can't be deleted in delete mode
-            break
-          }
-        }
+    }
+    // Add jiggle animation when in delete mode
+    .jiggle(game.isInDeleteMode)
+    .onGeometryChange(in: .local) { draggableFrame in
+      self.draggableFrame = draggableFrame
+    }
+    // When the game over sheet is presented, it can cancel any active drag gesture,
+    // which would leave the piece floating above the board. To avoid this, manually
+    // reset the gesture state.
+    .onChange(of: dragGestureEnabled) { _, dragGestureEnabled in
+      if !dragGestureEnabled {
+        resetDragState(velocityMagnitude: 0)
       }
-      // Add jiggle animation when in delete mode
-      .jiggle(game.isInDeleteMode)
-      .onGeometryChange(in: .local) { draggableFrame in
-        self.draggableFrame = draggableFrame
+    }
+    // Ensure that the drag gesture is definitely ended when the game over screen
+    // is presented, or it could be possible to continue dragging the piece underneath
+    // the game over sheet.
+    .disabled(!interactionEnabled)
+    // To avoid race conditions when placing a piece immediately after performing an undo,
+    // cancel any active drag gesture when triggering an undo.
+    .disabled(game.unplacedPiece != nil)
+    .onChange(of: game.unplacedPiece != nil) { _, performingUndo in
+      if performingUndo {
+        resetDragState(velocityMagnitude: 0)
       }
-      // When the game over sheet is presented, it can cancel any active drag gesture,
-      // which would leave the piece floating above the board. To avoid this, manually
-      // reset the gesture state.
-      .onChange(of: dragGestureEnabled) { _, dragGestureEnabled in
-        if !dragGestureEnabled {
-          resetDragState(velocityMagnitude: 0)
-        }
-      }
-      // Ensure that the drag gesture is definitely ended when the game over screen
-      // is presented, or it could be possible to continue dragging the piece underneath
-      // the game over sheet.
-      .disabled(!interactionEnabled)
-      // To avoid race conditions when placing a piece immediately after performing an undo,
-      // cancel any active drag gesture when triggering an undo.
-      .disabled(game.unplacedPiece != nil)
-      .onChange(of: game.unplacedPiece != nil) { _, performingUndo in
-        if performingUndo {
-          resetDragState(velocityMagnitude: 0)
-        }
-      }
+    }
   }
 
   // MARK: Private
@@ -281,7 +288,8 @@ struct DraggablePieceView: View {
 
         let velocityMagnitude = sqrt(
           value.velocity.width * value.velocity.width +
-            value.velocity.height * value.velocity.height)
+            value.velocity.height * value.velocity.height
+        )
 
         guard
           let point = targetTile?.key,
@@ -295,7 +303,8 @@ struct DraggablePieceView: View {
 
         let dragDecelerationAnimation = Animation.interpolatingSpring(
           duration: 0.125,
-          initialVelocity: velocityMagnitude / 50)
+          initialVelocity: velocityMagnitude / 50,
+        )
 
         game.addPiece(from: draggablePiece, at: point, dragDecelerationAnimation: dragDecelerationAnimation)
       }
@@ -304,7 +313,8 @@ struct DraggablePieceView: View {
   private func resetDragState(velocityMagnitude: CGFloat) {
     let returnToSlotAnimation = Animation.interpolatingSpring(
       duration: 0.5,
-      initialVelocity: velocityMagnitude / 1000)
+      initialVelocity: velocityMagnitude / 1000,
+    )
 
     withAnimation(returnToSlotAnimation) {
       dragOffset = .zero

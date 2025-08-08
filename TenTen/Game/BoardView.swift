@@ -43,10 +43,11 @@ struct BoardView: View {
               color: tile.color?.color,
               emptyTileColor: Color(white: 0.9),
               hidden: showingSettingsOverlay,
-              animation: game.tileAnimations[point])
-              .onGeometryChange(in: .named("GameView")) { tileFrame in
-                boardLayout.tileFrames[point] = tileFrame
-              }
+              animation: game.tileAnimations[point],
+            )
+            .onGeometryChange(in: .named("GameView")) { tileFrame in
+              boardLayout.tileFrames[point] = tileFrame
+            }
           }
         }
       }
@@ -92,8 +93,9 @@ struct PieceView: View {
             let tile = piece.tiles[Point(x: x, y: y)]
             TileView(
               color: tile.isFilled ? tile.color?.color : .clear,
-              scale: scale)
-              .frame(width: tileSize, height: tileSize)
+              scale: scale,
+            )
+            .frame(width: tileSize, height: tileSize)
           }
         }
       }
@@ -157,7 +159,9 @@ struct PowerupStarView: View {
           LinearGradient(
             colors: [.yellow, .orange],
             startPoint: .topLeading,
-            endPoint: .bottomTrailing))
+            endPoint: .bottomTrailing,
+          )
+        )
         .shadow(color: .black.opacity(0.5), radius: 1)
     }
     .scaleEffect(visible ? bounceScale : 0)
@@ -203,16 +207,16 @@ struct SingleTile: View {
       .aspectRatio(1, contentMode: .fit)
       .clipShape(RoundedRectangle(
         cornerSize: CGSize(width: 5 * scale, height: 5 * scale),
-        style: .continuous))
+        style: .continuous,
+      ))
   }
 }
 
 extension View {
   func onGeometryChange(
     in coordinateSpace: CoordinateSpaceProtocol,
-    _ handle: @escaping (CGRect) -> Void)
-    -> some View
-  {
+    _ handle: @escaping (CGRect) -> Void,
+  ) -> some View {
     overlay {
       GeometryReader { proxy in
         let frame = proxy.frame(in: coordinateSpace)
@@ -316,7 +320,8 @@ struct PowerupOverlay: View {
           .rotationEffect(.degrees(animatingToButton ? 360 : 0))
           .position(
             x: animatingToButton ? targetFrame.midX : tileFrame.midX,
-            y: animatingToButton ? targetFrame.midY : tileFrame.midY)
+            y: animatingToButton ? targetFrame.midY : tileFrame.midY,
+          )
           .transition(.opacity)
           .onChange(of: game.collectingPowerup) { _, newValue in
             if newValue != nil {

@@ -24,13 +24,15 @@ struct TenTenApp: App {
               get: { game },
               set: { newGame in
                 self.savedGame = .success(newGame)
-              }))
+              },
+            ))
 
           case .failure(let error):
             ErrorScreen(
               error: error,
               savedGame: $savedGame,
-              showErrorDetails: $showErrorDetails)
+              showErrorDetails: $showErrorDetails,
+            )
           }
         }
       }

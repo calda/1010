@@ -109,8 +109,8 @@ private struct OverlayPiece<Content: View>: View {
     width: Int,
     color: Color,
     point: Point,
-    @ViewBuilder content: () -> Content)
-  {
+    @ViewBuilder content: () -> Content,
+  ) {
     self.visible = visible
     self.height = height
     self.width = width

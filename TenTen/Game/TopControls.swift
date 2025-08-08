@@ -74,7 +74,8 @@ struct TopControls: View {
           ScoreText("HIGH SCORE")
             .transition(.asymmetric(
               insertion: .opacity.combined(with: .scale),
-              removal: .identity))
+              removal: .identity,
+            ))
         } else {
           ScoreText(game.highScore.formatted(.number))
         }
@@ -83,7 +84,8 @@ struct TopControls: View {
       .scaleEffect(0.8)
       .animation(
         .bouncy(duration: 0.8, extraBounce: 0.4),
-        value: game.score == game.highScore)
+        value: game.score == game.highScore,
+      )
       // Ensure we don't do a bouncy animation after losing
       // and resetting the current score
       .id(ObjectIdentifier(game))

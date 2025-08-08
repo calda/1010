@@ -51,7 +51,8 @@ struct GameView: View {
     .environment(\.showingGameOverScreen, presentGameOverSheet)
     .animation(
       game.placedPiece?.dragDecelerationAnimation ?? .interpolatingSpring(),
-      value: game.placedPiece?.piece)
+      value: game.placedPiece?.piece,
+    )
     .animation(.spring, value: game.unplacedPiece?.piece)
     .onChange(of: try? game.data, debounceTime: .seconds(0.5)) { _, gameData in
       if let gameData {
@@ -83,8 +84,6 @@ struct GameView: View {
 // MARK: - PowerupButtons
 
 struct PowerupButtons: View {
-  @Environment(\.game) private var game
-
   var body: some View {
     HStack(spacing: 20) {
       PowerupButton(powerupType: .bonusPiece)
@@ -93,6 +92,8 @@ struct PowerupButtons: View {
     .opacity(hasPowerups ? 1 : 0)
     .animation(.easeInOut(duration: 0.15), value: hasPowerups)
   }
+
+  @Environment(\.game) private var game
 
   private var hasPowerups: Bool {
     game.powerups.values.contains { $0 > 0 }
@@ -164,10 +165,11 @@ struct PowerupButton: View {
           piece: game.bonusPiece.piece,
           id: game.bonusPiece.id,
           draggablePiece: .bonusPiece,
-          selected: $selected)
-          .frame(width: 50, height: 50)
-          .allowsHitTesting((game.powerups[.bonusPiece] ?? 0) != 0)
-          .id(game.bonusPiece.id)
+          selected: $selected,
+        )
+        .frame(width: 50, height: 50)
+        .allowsHitTesting((game.powerups[.bonusPiece] ?? 0) != 0)
+        .id(game.bonusPiece.id)
       }
     }
     .opacity(showingSettingsOverlay ? 0 : 1)

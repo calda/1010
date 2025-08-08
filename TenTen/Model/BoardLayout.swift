@@ -31,7 +31,8 @@ final class BoardLayout {
 
     return CGSize(
       width: globalOrigin.x - boardFrame.origin.x,
-      height: globalOrigin.y - boardFrame.origin.y)
+      height: globalOrigin.y - boardFrame.origin.y,
+    )
   }
 
   /// The size of the given piece on the board

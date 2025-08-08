@@ -11,8 +11,6 @@ import SwiftUI
 // MARK: - Piece
 
 struct Piece: Hashable, Codable {
-  var tiles: [[Tile]]
-
   init(color: TileColor, tiles: [[Int]]) {
     self.tiles = tiles.map { row in
       row.map { isFilled in
@@ -24,6 +22,9 @@ struct Piece: Hashable, Codable {
       }
     }
   }
+
+  var tiles: [[Tile]]
+
 }
 
 // MARK: - RandomPiece
@@ -86,10 +87,6 @@ struct Point: Hashable, Codable {
   let x: Int
   var y: Int
 
-  init(x: Int, y: Int) {
-    self.x = x
-    self.y = y
-  }
 }
 
 extension [[Tile]] {
@@ -112,7 +109,8 @@ extension [[Tile]] {
   var rotated: [[Tile]] {
     var rotated: [[Tile]] = Array(
       repeating: [Tile](repeating: .empty, count: height),
-      count: width)
+      count: width,
+    )
 
     for y in 0 ..< height {
       for x in 0 ..< width {
@@ -237,15 +235,17 @@ extension Piece {
   static let oneByOne = Piece(
     color: .blue,
     tiles: [
-      [1],
-    ])
+      [1]
+    ],
+  )
 
   static let twoByTwo = Piece(
     color: .green,
     tiles: [
       [1, 1],
       [1, 1],
-    ])
+    ],
+  )
 
   static let threeByThree = Piece(
     color: .red,
@@ -253,38 +253,44 @@ extension Piece {
       [1, 1, 1],
       [1, 1, 1],
       [1, 1, 1],
-    ])
+    ],
+  )
 
   static let oneByTwo = Piece(
     color: .teal,
     tiles: [
-      [1, 1],
-    ])
+      [1, 1]
+    ],
+  )
 
   static let oneByThree = Piece(
     color: .orange,
     tiles: [
-      [1, 1, 1],
-    ])
+      [1, 1, 1]
+    ],
+  )
 
   static let oneByFour = Piece(
     color: .indigo,
     tiles: [
-      [1, 1, 1, 1],
-    ])
+      [1, 1, 1, 1]
+    ],
+  )
 
   static let oneByFive = Piece(
     color: .purple,
     tiles: [
-      [1, 1, 1, 1, 1],
-    ])
+      [1, 1, 1, 1, 1]
+    ],
+  )
 
   static let twoByTwoElbow = Piece(
     color: .cyan,
     tiles: [
       [1, 0],
       [1, 1],
-    ])
+    ],
+  )
 
   static let threeByThreeElbow = Piece(
     color: .pink,
@@ -292,7 +298,8 @@ extension Piece {
       [1, 0, 0],
       [1, 0, 0],
       [1, 1, 1],
-    ])
+    ],
+  )
 }
 
 // MARK: - DraggablePiece

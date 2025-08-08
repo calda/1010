@@ -97,7 +97,8 @@ struct RoundedButton<Content: View>: View {
         .frame(maxWidth: .infinity)
         .background(
           RoundedRectangle(cornerRadius: 16)
-            .fill(color))
+            .fill(color)
+        )
     }
     .buttonStyle(PressableTextColorStyle())
   }

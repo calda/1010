@@ -34,9 +34,10 @@ struct AboutScreen: View {
 
         Link(
           "calstephens.tech",
-          destination: URL(string: "https://calstephens.tech")!)
-          .font(.title3.weight(.semibold))
-          .opacity(0.8)
+          destination: URL(string: "https://calstephens.tech")!,
+        )
+        .font(.title3.weight(.semibold))
+        .opacity(0.8)
       }
       .padding(30)
     }

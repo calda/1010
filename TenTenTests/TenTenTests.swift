@@ -161,7 +161,8 @@ struct TenTenTests {
       tiles: [
         [1],
         [1],
-      ]))
+      ],
+    ))
 
     #expect(Piece.oneByTwo.rotated.rotated == .oneByTwo)
 
@@ -173,7 +174,8 @@ struct TenTenTests {
         [1],
         [1],
         [1],
-      ]))
+      ],
+    ))
 
     #expect(Piece.oneByFive.rotated.rotated == .oneByFive)
 
@@ -182,21 +184,24 @@ struct TenTenTests {
       tiles: [
         [0, 1],
         [1, 1],
-      ]))
+      ],
+    ))
 
     #expect(Piece.twoByTwoElbow.rotated.rotated == Piece(
       color: Piece.twoByTwoElbow.color,
       tiles: [
         [1, 1],
         [0, 1],
-      ]))
+      ],
+    ))
 
     #expect(Piece.twoByTwoElbow.rotated.rotated.rotated == Piece(
       color: Piece.twoByTwoElbow.color,
       tiles: [
         [1, 1],
         [1, 0],
-      ]))
+      ],
+    ))
 
     #expect(Piece.twoByTwoElbow.rotated.rotated.rotated.rotated == .twoByTwoElbow)
 
@@ -215,12 +220,12 @@ struct TenTenTests {
 
     game.updateScore(to: 1_010)
     #expect(game.achievements == [
-      .oneThousandPoints,
+      .oneThousandPoints
     ])
 
     game.updateScore(to: 1_025)
     #expect(game.achievements == [
-      .oneThousandPoints,
+      .oneThousandPoints
     ])
 
     game.updateScore(to: 11_000)
@@ -774,7 +779,8 @@ struct TenTenTests {
       tiles: game.tiles,
       score: game.score,
       pieces: game.availablePieces.map { $0 },
-      powerups: game.powerups[.bonusPiece] ?? 0)
+      powerups: game.powerups[.bonusPiece] ?? 0,
+    )
 
     // Place a regular piece
     game.addPiece(inSlot: 0, at: Point(x: 0, y: 0))
@@ -845,7 +851,8 @@ extension Game {
     removePiece(inSlot: 2)
 
     reloadAvailablePiecesIfNeeded(
-      newPieces: availablePieces.map { RandomPiece(id: UUID(), piece: $0) })
+      newPieces: availablePieces.map { RandomPiece(id: UUID(), piece: $0) }
+    )
   }
 }
 

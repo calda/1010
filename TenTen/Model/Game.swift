@@ -27,7 +27,8 @@ final class Game: Codable {
 
     tiles = Array(
       repeating: Array(repeating: .empty, count: 10),
-      count: 10)
+      count: 10,
+    )
 
     availablePieces = []
     reloadAvailablePiecesIfNeeded()
@@ -413,8 +414,8 @@ final class Game: Codable {
   func recordUndoSnapshot(
     didPlacePiece placedPiece: RandomPiece,
     at point: Point,
-    fromDraggablePiece draggablePiece: DraggablePiece)
-  {
+    fromDraggablePiece draggablePiece: DraggablePiece,
+  ) {
     recordUndoSnapshot(action: .placePiece(piece: placedPiece, point: point, source: draggablePiece))
   }
 
@@ -623,7 +624,8 @@ final class Game: Codable {
       powerupTurnsRemaining: powerupTurnsRemaining,
       lastPowerupScore: lastPowerupScore,
       moveCount: moveCount,
-      powerups: powerups)
+      powerups: powerups,
+    )
 
     undoHistory.insert(snapshot, at: 0)
 
@@ -870,8 +872,8 @@ extension DispatchQueue {
 
   func asyncAfter_syncInUnitTests(
     deadline: DispatchTime,
-    excute: @escaping () -> Void)
-  {
+    excute: @escaping () -> Void,
+  ) {
     if NSClassFromString("XCTest") != nil {
       excute()
     } else {
@@ -900,7 +902,8 @@ extension RandomAccessCollection where Index == Int {
     let distribution = GKRandomDistribution(
       randomSource: GKMersenneTwisterRandomSource(seed: UInt64(abs(seed))),
       lowestValue: indices.first!,
-      highestValue: indices.last!)
+      highestValue: indices.last!,
+    )
 
     return self[distribution.nextInt()]
   }

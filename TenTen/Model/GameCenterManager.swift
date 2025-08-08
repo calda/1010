@@ -33,7 +33,8 @@ enum GameCenterManager {
         score,
         context: 0,
         player: GKLocalPlayer.local,
-        leaderboardIDs: [Leaderboard.highScore.rawValue])
+        leaderboardIDs: [Leaderboard.highScore.rawValue],
+      )
     }
     #endif
   }
@@ -44,7 +45,8 @@ enum GameCenterManager {
     Task {
       let achievement = GKAchievement(
         identifier: achievement.rawValue,
-        player: GKLocalPlayer.local)
+        player: GKLocalPlayer.local,
+      )
 
       achievement.percentComplete = 100.0
 
