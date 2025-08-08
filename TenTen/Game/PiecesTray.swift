@@ -47,7 +47,11 @@ struct PieceSlot: View {
   var body: some View {
     ZStack {
       if let piece {
-        DraggablePieceView(piece: piece.piece, id: piece.id, draggablePiece: .slot(slot))
+        DraggablePieceView(
+          piece: piece.piece,
+          id: piece.id,
+          draggablePiece: .slot(slot),
+          selected: $selected)
           .frame(maxWidth: .infinity, maxHeight: .infinity)
           .transition(.asymmetric(
             insertion: .scale.combined(with: .opacity),
@@ -61,6 +65,7 @@ struct PieceSlot: View {
         Color.clear
       }
     }
+    .zIndex(selected ? .greatestFiniteMagnitude : 0)
     .aspectRatio(1, contentMode: .fit)
     // Animate an appearance animation, except after following an undo
     .animation(
@@ -71,6 +76,8 @@ struct PieceSlot: View {
   }
 
   // MARK: Private
+
+  @State private var selected = false
 
   @Environment(\.game) private var game
 }
@@ -84,6 +91,7 @@ struct DraggablePieceView: View {
   let piece: Piece
   let id: UUID
   let draggablePiece: DraggablePiece
+  @Binding var selected: Bool
 
   var body: some View {
     PieceView(
@@ -171,7 +179,6 @@ struct DraggablePieceView: View {
   @State private var selectionOffset = CGSize.zero
   @State private var frame = CGRect.zero
   @State private var draggableFrame = CGRect.zero
-  @State private var selected = false
   @State private var placed = false
 
   /// The amount to scale down pieces in the tray by, compared to
@@ -231,12 +238,12 @@ struct DraggablePieceView: View {
     interactionEnabled
       && !game.isInDeleteMode
   }
-  
+
   private var interactionEnabled: Bool {
     scenePhase == .active
       && !showingGameOverScreen
   }
-  
+
   private var dragGesture: some Gesture {
     DragGesture(minimumDistance: 0)
       .onChanged { value in

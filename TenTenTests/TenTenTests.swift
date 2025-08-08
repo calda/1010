@@ -442,7 +442,7 @@ struct TenTenTests {
     #expect(game.powerupPosition != nil)
     #expect(game.powerupTurnsRemaining == 5)
     #expect(game.powerups.isEmpty)
-    
+
     game.updateAvailablePieces(to: [.threeByThree, .threeByThree, .threeByThree])
 
     game.addPiece(inSlot: 0, at: Point(x: 0, y: 0))
@@ -468,7 +468,7 @@ struct TenTenTests {
     #expect(game.powerupTurnsRemaining == 0)
     #expect(game.powerupPosition == nil)
   }
-  
+
   @Test
   func powerupCollectionWhenRowCleared() {
     let game = Game()

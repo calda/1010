@@ -163,7 +163,8 @@ struct PowerupButton: View {
         DraggablePieceView(
           piece: game.bonusPiece.piece,
           id: game.bonusPiece.id,
-          draggablePiece: .bonusPiece)
+          draggablePiece: .bonusPiece,
+          selected: $selected)
           .frame(width: 50, height: 50)
           .allowsHitTesting((game.powerups[.bonusPiece] ?? 0) != 0)
           .id(game.bonusPiece.id)
@@ -184,6 +185,7 @@ struct PowerupButton: View {
 
   // MARK: Private
 
+  @State private var selected = false
   @State private var badgeVisible = false
   @State private var hasAppeared = false
   @State private var buttonScale: CGFloat = 1.0
