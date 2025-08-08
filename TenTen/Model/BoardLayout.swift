@@ -9,8 +9,6 @@ import SwiftUI
 
 @Observable
 final class BoardLayout {
-  let tileSpacing = 2.0
-
   /// The frame of each individual tile within the global coordinate space
   var tileFrames: [Point: CGRect] = [:]
 
@@ -23,6 +21,16 @@ final class BoardLayout {
   /// The size of tiles on the game board
   var boardTileSize: CGFloat {
     tileFrames.values.first?.width ?? 10
+  }
+
+  /// Spacing between individual tiles
+  var tileSpacing: CGFloat {
+    max(floor(0.05 * boardTileSize), 2)
+  }
+
+  /// The corner radius of individual tiles on the game board
+  var tileCornerRadius: CGFloat {
+    floor(0.15 * boardTileSize)
   }
 
   /// The origin in the board's coordinate space of the given point

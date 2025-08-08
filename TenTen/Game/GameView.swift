@@ -170,6 +170,11 @@ struct PowerupButton: View {
         .frame(width: 50, height: 50)
         .allowsHitTesting((game.powerups[.bonusPiece] ?? 0) != 0)
         .id(game.bonusPiece.id)
+        .onChange(of: game.bonusPiece.id) { _, _ in
+          withAnimation(nil) {
+            selected = false
+          }
+        }
       }
     }
     .opacity(showingSettingsOverlay ? 0 : 1)

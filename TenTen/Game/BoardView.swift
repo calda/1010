@@ -206,10 +206,16 @@ struct SingleTile: View {
       .fill(color)
       .aspectRatio(1, contentMode: .fit)
       .clipShape(RoundedRectangle(
-        cornerSize: CGSize(width: 5 * scale, height: 5 * scale),
+        cornerSize: CGSize(
+          width: boardLayout.tileCornerRadius * scale,
+          height: boardLayout.tileCornerRadius * scale,
+        ),
         style: .continuous,
       ))
   }
+
+  @Environment(\.boardLayout) private var boardLayout
+
 }
 
 extension View {

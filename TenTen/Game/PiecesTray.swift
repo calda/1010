@@ -68,6 +68,9 @@ struct PieceSlot: View {
       }
     }
     .zIndex(selected ? .greatestFiniteMagnitude : 0)
+    .onChange(of: piece?.id) { _, _ in
+      selected = false
+    }
     .aspectRatio(1, contentMode: .fit)
     // Animate an appearance animation, except after following an undo
     .animation(
