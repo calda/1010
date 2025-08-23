@@ -257,6 +257,8 @@ struct DraggablePieceView: View {
   private var dragGesture: some Gesture {
     DragGesture(minimumDistance: 0)
       .onChanged { value in
+        game.lightImpactGenerator.prepare()
+        
         let pieceHeight = boardLayout.size(of: piece).height
         let verticalPaddingInTouchArea = (draggableFrame.height - pieceHeight) / 2
         let bottomOfPieceInDraggableArea = draggableFrame.height - verticalPaddingInTouchArea

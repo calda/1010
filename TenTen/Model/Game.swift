@@ -192,6 +192,7 @@ final class Game: Codable {
     increaseScore(by: piece.points)
     moveCount += 1
     placedPiece = (piece: randomPiece, targetTile: point, dragDecelerationAnimation: dragDecelerationAnimation)
+    lightImpactGenerator.impactOccurred()
 
     // Wait for the drag deceleration animation (0.125s) to finish.
     DispatchQueue.main.asyncAfter_syncInUnitTests(deadline: .now() + 0.15) { [self] in
@@ -334,6 +335,7 @@ final class Game: Codable {
   func clearFilledRows(placedPiece: Piece, placedLocation: Point) {
     // Compute all of the tiles that are eligible to be cleared before we remove any.
     var tilesToClear = [Point: Double]()
+    var tilesPerDelay = [Double: Int]()
     var clears = 0
 
     for x in 0...9 {
@@ -346,6 +348,7 @@ final class Game: Codable {
         for point in column {
           let delay = clearDelay(for: point, placedPiece: placedPiece, placedLocation: placedLocation)
           tilesToClear[point] = delay
+          tilesPerDelay[delay, default: 0] += 1
         }
       }
     }
@@ -360,6 +363,7 @@ final class Game: Codable {
         for point in row {
           let delay = clearDelay(for: point, placedPiece: placedPiece, placedLocation: placedLocation)
           tilesToClear[point] = delay
+          tilesPerDelay[delay, default: 0] += 1
         }
       }
     }
@@ -388,6 +392,26 @@ final class Game: Codable {
     // `DispatchQueue.main.asyncAfter(deadline: .now() + delay)` because it has performance issues.
     for (tileToClear, delay) in tilesToClear {
       tileAnimations[tileToClear] = .spring.delay(delay)
+    }
+    
+    lightImpactGenerator.prepare()
+    mediumImpactGenerator.prepare()
+    heavyImpactGenerator.prepare()
+    
+    for (delay, count) in tilesPerDelay {
+      // Stretch out the haptics a bit longer to more closely match the perceived visuals
+      let hapticDelay = delay * 1.25
+      
+      DispatchQueue.main.asyncAfter(deadline: .now() + hapticDelay) {
+        switch count {
+        case 1:
+          self.lightImpactGenerator.impactOccurred()
+        case 2, 3:
+          self.mediumImpactGenerator.impactOccurred()
+        default: // 4, 5, 6:
+          self.heavyImpactGenerator.impactOccurred()
+        }
+      }
     }
 
     DispatchQueue.main.asyncAfter_syncInUnitTests(deadline: .now() + 0.05) {
@@ -509,6 +533,7 @@ final class Game: Codable {
   /// Checks if powerup should be collected when clearing rows/columns
   func checkPowerupCollection(clearedTiles: Set<Point>) {
     guard let powerupPos = powerupPosition else { return }
+    successGenerator.prepare()
 
     if clearedTiles.contains(powerupPos) {
       // Start powerup collection animation
@@ -534,6 +559,7 @@ final class Game: Codable {
   /// Awards a powerup to the player's inventory
   func awardPowerup(_ powerupType: Powerup) {
     powerups[powerupType, default: 0] += 1
+    successGenerator.notificationOccurred(.success)
 
     // Generate a new bonus piece with unique ID when awarding bonus piece powerup
     if powerupType == .bonusPiece {
@@ -605,6 +631,11 @@ final class Game: Codable {
 
   // MARK: Private
 
+  let lightImpactGenerator = UIImpactFeedbackGenerator(style: .light)
+  let mediumImpactGenerator = UIImpactFeedbackGenerator(style: .medium)
+  let heavyImpactGenerator = UIImpactFeedbackGenerator(style: .heavy)
+  let successGenerator = UINotificationFeedbackGenerator()
+  
   /// The number of undo actions that are pending because another undo is already animating
   private var pendingUndoCount = 0
 
